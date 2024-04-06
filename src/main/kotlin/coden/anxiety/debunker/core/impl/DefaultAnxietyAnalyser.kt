@@ -1,65 +1,49 @@
 package coden.anxiety.debunker.core.impl
 
 import coden.anxiety.debunker.core.api.*
-import coden.anxiety.debunker.core.api.persistance.*
+import coden.anxiety.debunker.core.persistance.AnxietyRepository
+import coden.anxiety.debunker.core.persistance.AnxietyWithResolution
+import coden.anxiety.debunker.core.persistance.Resolution
 import org.apache.logging.log4j.kotlin.Logging
 
 class DefaultAnxietyAnalyser
     (
     private val anxietyRepository: AnxietyRepository,
-    private val resolutionRespository: ResolutionRespository
 ) : AnxietyAnalyser, Logging {
     override fun anxiety(request: AnxietyRequest): Result<AnxietyEntityResponse> {
         logger.info("Requesting anxiety ${request.id}...")
 
         return anxietyRepository
-            .get(request.id)
-            .flatMap { mapAnxietyToEntityResponse(it) }
+            .anxiety(request.id)
+            .map { mapAnxietyToEntityResponse(it) }
             .logInteraction(logger, "Requesting anxiety ${request.id}...")
     }
 
-    private fun mapAnxietyToEntityResponse(anxiety: Anxiety): Result<AnxietyEntityResponse> {
-        return getResolution(anxiety.id)
-            .map { resolution -> resolution to anxiety }
-            .map { AnxietyEntityResponse(it.second.id, it.second.description, it.first, it.second.created) }
-    }
-
-    private fun getResolution(id: String): Result<AnxietyResolution> {
-        return resolutionRespository
-            .get(id)
-            .map { if (it.fulfilled) AnxietyResolution.FULFILLED else AnxietyResolution.UNFULFILLED }
-            .recover<NoResolutionException, AnxietyResolution> { AnxietyResolution.UNRESOLVED }
-    }
-
-    override fun anxieties(request: ListAnxietyRequest): Result<AnxietyListResponse> {
+    override fun anxieties(request: ListAnxietiesRequest): Result<AnxietyListResponse> {
         logger.info("Requesting all anxieties...")
 
         return anxietyRepository
-            .list()
-            .flatMap {
-                it.map { mapAnxietyToEntityResponse(it) }
-                AnxietyListResponse()
-            }
+            .anxieties()
+            .map { anxieties -> anxieties.map { mapAnxietyToEntityResponse(it) } }
+            .map { AnxietyListResponse(it) }
             .logInteraction(logger, "Requesting all anxieties")
     }
 
-    override fun resolution(request: ResolutionRequest): Result<ResolutionEntityResponse> {
-        logger.info("Requesting anxiety ${request.id}...")
-
-        val anxiety = Anxiety(request.description)
-        return repository
-            .insert(anxiety)
-            .map { NewAnxietyResponse(anxiety.id, anxiety.description, anxiety.created) }
-            .logInteraction(logger, "Adding new anxiety(${anxiety.id})")
+    private fun mapAnxietyToEntityResponse(anxiety: AnxietyWithResolution): AnxietyEntityResponse {
+        return AnxietyEntityResponse(
+            anxiety.id,
+            anxiety.description,
+            anxiety.created,
+            mapResolution(anxiety.resolution),
+            anxiety.resolution?.resolvedAt
+        )
     }
 
-    override fun resolutions(request: ListResolutionRequest): Result<ResolutionListResponse> {
-        logger.info("Requesting anxiety ${request.id}...")
-
-        val anxiety = Anxiety(request.description)
-        return repository
-            .insert(anxiety)
-            .map { NewAnxietyResponse(anxiety.id, anxiety.description, anxiety.created) }
-            .logInteraction(logger, "Adding new anxiety(${anxiety.id})")
+    private fun mapResolution(resolution: Resolution?): AnxietyEntityResolution {
+        return when (resolution?.fulfilled) {
+            true -> AnxietyEntityResolution.FULFILLED
+            false -> AnxietyEntityResolution.UNFULFILLED
+            else -> AnxietyEntityResolution.UNRESOLVED
+        }
     }
 }

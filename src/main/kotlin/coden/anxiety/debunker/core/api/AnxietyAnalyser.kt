@@ -5,12 +5,8 @@ import java.time.Instant
 
 interface AnxietyAnalyser {
     fun anxiety(request: AnxietyRequest): Result<AnxietyEntityResponse>
-    fun anxieties(request: ListAnxietyRequest): Result<AnxietyListResponse>
-
-    fun resolution(request: ResolutionRequest): Result<ResolutionEntityResponse>
-    fun resolutions(request: ListResolutionRequest): Result<ResolutionListResponse>
+    fun anxieties(request: ListAnxietiesRequest): Result<AnxietyListResponse>
 }
-
 
 interface AnxietyAnalyserRequest
 
@@ -18,7 +14,7 @@ data class AnxietyRequest(
     val id: String
 ): AnxietyAnalyserRequest
 
-data class ListAnxietyRequest(
+data class ListAnxietiesRequest(
     val filter: AnxietyFilter
 ): AnxietyAnalyserRequest
 
@@ -31,19 +27,14 @@ enum class AnxietyFilter
     ALL({true})
 }
 
-data class ResolutionRequest(
-    val anxietyId: String,
-): AnxietyAnalyserRequest
-
-data object ListResolutionRequest : AnxietyAnalyserRequest
-
 interface AnxietyAnalyserResponse
 
 data class AnxietyEntityResponse(
     val id: String,
     val description: String,
-    val resolution: AnxietyEntityResolution,
     val created: Instant,
+    val resolution: AnxietyEntityResolution,
+    val resolvedAt: Instant?,
 ): AnxietyAnalyserResponse
 
 enum class AnxietyEntityResolution{ FULFILLED, UNFULFILLED, UNRESOLVED }
@@ -51,14 +42,4 @@ enum class AnxietyEntityResolution{ FULFILLED, UNFULFILLED, UNRESOLVED }
 
 data class AnxietyListResponse(
     val anxieties: List<AnxietyEntityResponse>
-): AnxietyAnalyserResponse
-
-data class ResolutionEntityResponse(
-    val resolvedAt: Instant,
-    val anxietyId: String,
-    val fulfilled: Boolean
-): AnxietyAnalyserResponse
-
-data class ResolutionListResponse(
-    val resolutions: List<ResolutionEntityResponse>
 ): AnxietyAnalyserResponse

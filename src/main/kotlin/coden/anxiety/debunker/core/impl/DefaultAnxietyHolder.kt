@@ -1,8 +1,8 @@
 package coden.anxiety.debunker.core.impl
 
 import coden.anxiety.debunker.core.api.*
-import coden.anxiety.debunker.core.api.persistance.Anxiety
-import coden.anxiety.debunker.core.api.persistance.AnxietyRepository
+import coden.anxiety.debunker.core.persistance.Anxiety
+import coden.anxiety.debunker.core.persistance.AnxietyRepository
 import org.apache.logging.log4j.kotlin.Logging
 
 class DefaultAnxietyHolder(
@@ -13,7 +13,7 @@ class DefaultAnxietyHolder(
 
         val anxiety = Anxiety(request.description)
         return repository
-            .insert(anxiety)
+            .saveAnxiety(anxiety)
             .map { NewAnxietyResponse(anxiety.id, anxiety.description, anxiety.created) }
             .logInteraction(logger, "Adding new anxiety(${anxiety.id})")
     }
@@ -22,7 +22,7 @@ class DefaultAnxietyHolder(
         logger.info("Removing anxiety(${request.id})...")
 
         return repository
-            .delete(request.id)
+            .deleteAnxiety(request.id)
             .map { DeleteAnxietyResponse(request.id) }
             .logInteraction(logger, "Removing anxiety(${request.id})")
     }
@@ -31,7 +31,7 @@ class DefaultAnxietyHolder(
         logger.info("Updating anxiety(${request.id}) -> ${request.description}...")
 
         return repository
-            .update(request.id, request.description)
+            .updateAnxiety(request.id, request.description)
             .map { UpdateAnxietyResponse(it.id, it.description, it.created) }
             .logInteraction(logger, "Updating anxiety(${request.id})")
     }
@@ -40,7 +40,7 @@ class DefaultAnxietyHolder(
         logger.info("Clearing anxieties...")
 
         return repository
-            .clear()
+            .clearAnxieties()
             .map { ClearAnxietiesResponse(it) }
             .logInteraction(logger, "Clearing anxieties")
     }

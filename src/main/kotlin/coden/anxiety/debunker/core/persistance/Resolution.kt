@@ -1,4 +1,4 @@
-package coden.anxiety.debunker.core.api.persistance
+package coden.anxiety.debunker.core.persistance
 
 import java.time.Instant
 

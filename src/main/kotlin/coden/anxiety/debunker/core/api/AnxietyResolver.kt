@@ -6,7 +6,6 @@ interface AnxietyResolver {
     fun resolve(request: ResolveAnxietyRequest): Result<ResolveAnxietyResponse>
     fun unresolve(request: UnresolveAnxietyRequest): Result<UnresolveAnxietyResponse>
     fun update(request: UpdateResolutionRequest): Result<UpdateResolutionResponse>
-
     fun clear(request: ClearResolutionsRequest): Result<ClearResolutionsResponse>
 }
 
