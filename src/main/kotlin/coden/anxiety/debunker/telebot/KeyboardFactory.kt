@@ -1,0 +1,74 @@
+package coden.anxiety.debunker.telebot
+
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
+
+
+data class Keyboard(
+    val lines: List<KeyboardLine>,
+)
+
+data class KeyboardLine(
+    val buttons: List<KeyboardButton>,
+)
+
+data class KeyboardButton(
+    val text: String,
+    val data: String
+)
+
+class KeyboardLineBuilder{
+    private val line = ArrayList<KeyboardButton>()
+
+    fun b(text: String, data: String): KeyboardLineBuilder {
+        line.add(KeyboardButton(text, data))
+        return this
+    }
+
+    internal fun build(): KeyboardLine{
+        return KeyboardLine(line)
+    }
+}
+
+class KeyboardBuilder(){
+    private val lines = ArrayList<KeyboardLine>()
+
+    fun l(line: KeyboardLineBuilder.() -> Unit): KeyboardBuilder{
+        val new = KeyboardLineBuilder()
+        line.invoke(new)
+        lines.add(new.build())
+        return this
+    }
+
+    internal fun build(): Keyboard{
+        return Keyboard(lines)
+    }
+}
+
+fun keyboard(keyboard: KeyboardBuilder.() -> Unit): Keyboard {
+    val new = KeyboardBuilder()
+    new.keyboard()
+    return new.build()
+}
+
+
+fun withButtons(keyboard: Keyboard): ReplyKeyboard {
+    val markup = InlineKeyboardMarkup()
+    val lines = ArrayList<List<InlineKeyboardButton>>()
+
+    for (line in keyboard.lines) {
+        val inlineButtons = ArrayList<InlineKeyboardButton>()
+        for (button in line.buttons){
+            val b = InlineKeyboardButton()
+            b.text = button.text
+            b.callbackData = button.data
+            inlineButtons.add(b)
+        }
+        lines.add(inlineButtons)
+    }
+
+    markup.keyboard = lines
+    return markup
+}
+

@@ -31,7 +31,9 @@ fun main() {
     val holder = DefaultAnxietyHolder(repository)
     val analyser = DefaultAnxietyAnalyser(repository)
 
-    val bot = AnxietyDebunkerTelegramBot(config.telegram,
+
+    val bot = AnxietyDebunkerTelegramBot(
+        config.telegram,
         analyser,
         holder,
         resolver
