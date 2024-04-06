@@ -15,14 +15,18 @@ data class KeyboardLine(
 
 data class KeyboardButton(
     val text: String,
-    val data: String
+    val data: String=text
 )
 
 class KeyboardLineBuilder{
     private val line = ArrayList<KeyboardButton>()
 
-    fun b(text: String, data: String): KeyboardLineBuilder {
-        line.add(KeyboardButton(text, data))
+    fun b(text: String, data: String=text): KeyboardLineBuilder {
+        return b(KeyboardButton(text, data))
+    }
+
+    fun b(button: KeyboardButton): KeyboardLineBuilder {
+        line.add(button)
         return this
     }
 
@@ -31,10 +35,10 @@ class KeyboardLineBuilder{
     }
 }
 
-class KeyboardBuilder(){
+class KeyboardBuilder{
     private val lines = ArrayList<KeyboardLine>()
 
-    fun l(line: KeyboardLineBuilder.() -> Unit): KeyboardBuilder{
+    fun row(line: KeyboardLineBuilder.() -> Unit): KeyboardBuilder{
         val new = KeyboardLineBuilder()
         line.invoke(new)
         lines.add(new.build())
@@ -46,18 +50,18 @@ class KeyboardBuilder(){
     }
 }
 
-fun keyboard(keyboard: KeyboardBuilder.() -> Unit): Keyboard {
+fun keyboard(keyboard: KeyboardBuilder.() -> Unit): ReplyKeyboard {
     val new = KeyboardBuilder()
     new.keyboard()
-    return new.build()
+    return new.build().asReplyKeyboard()
 }
 
 
-fun withButtons(keyboard: Keyboard): ReplyKeyboard {
+fun Keyboard.asReplyKeyboard(): ReplyKeyboard {
     val markup = InlineKeyboardMarkup()
-    val lines = ArrayList<List<InlineKeyboardButton>>()
+    val keyboard = ArrayList<List<InlineKeyboardButton>>()
 
-    for (line in keyboard.lines) {
+    for (line in lines) {
         val inlineButtons = ArrayList<InlineKeyboardButton>()
         for (button in line.buttons){
             val b = InlineKeyboardButton()
@@ -65,10 +69,10 @@ fun withButtons(keyboard: Keyboard): ReplyKeyboard {
             b.callbackData = button.data
             inlineButtons.add(b)
         }
-        lines.add(inlineButtons)
+        keyboard.add(inlineButtons)
     }
 
-    markup.keyboard = lines
+    markup.keyboard = keyboard
     return markup
 }
 

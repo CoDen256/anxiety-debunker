@@ -5,6 +5,6 @@ import java.time.Instant
 
 data class Anxiety(
     val description: String,
-    val id: String = RandomStringUtils.randomNumeric(8),
+    val id: String = RandomStringUtils.randomAlphabetic(    5),
     val created: Instant = Instant.now()
 )
