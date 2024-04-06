@@ -1,10 +1,12 @@
 package coden.anxiety.debunker.telebot
 
 import coden.anxiety.debunker.core.api.*
+import coden.anxiety.debunker.core.persistance.Anxiety
 import org.telegram.abilitybots.api.bot.AbilityBot
 import org.telegram.abilitybots.api.objects.*
 import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard
 import java.time.Instant
@@ -20,6 +22,9 @@ class AnxietyDebunkerTelegramBot(
     override fun creatorId(): Long {
         return config.target
     }
+
+    private val anxietyToBotMessage: MutableMap<String, Int> = HashMap()
+    private val ownerMessageToAnxiety: MutableMap<Int, String> = HashMap()
 
     private fun sendHelloWorld(update: Update) {
         silent.send("Hello world", getChatId(update))
@@ -50,8 +55,43 @@ class AnxietyDebunkerTelegramBot(
         return Reply.of({ b, u -> handleAnxiety(u) }, { isNotCommand(it) })
     }
 
+    fun editAnxiety(): Reply {
+        return Reply.of({b, u -> updateAnxiety(u)}, Flag.EDITED_MESSAGE)
+    }
+
     private fun isNotCommand(update: Update): Boolean {
         return Flag.TEXT.test(update) && !update.message.text.startsWith("/")
+    }
+
+    private fun updateAnxiety(update: Update) {
+        val anxiety = ownerMessageToAnxiety[update.editedMessage.messageId]
+        if (anxiety == null) {
+            silent.send("Unable to find corresponding anxiety", getChatId(update))
+            return
+        }
+
+        val botMessage = anxietyToBotMessage[anxiety]
+        if (botMessage == null) {
+            silent.send("Unable to find anxiety message", getChatId(update))
+        }
+
+        try {
+            val edit = EditMessageText()
+            val updated = holder.update(UpdateAnxietyRequest(anxiety, update.editedMessage.text))
+                .onFailure { silent.send(it.message, getChatId(update)) }
+                .getOrNull() ?: return
+
+            val anxietyEntity = analyser.anxiety(AnxietyRequest(updated.id))
+                .onFailure { silent.send("Unable to get anxiety entity: ${it.message}", getChatId(update)) }
+                .getOrNull() ?: return
+            edit.text = formatAnxiety(anxietyEntity.id, anxietyEntity.created, anxietyEntity.description, anxietyEntity.resolution)
+            edit.messageId = botMessage
+            edit.enableMarkdown(true)
+            edit.chatId = getChatId(update).toString()
+            sender.execute(edit)
+        }catch (e:Exception){
+            silent.send("Anxiety could not be updated: ${e.message}", getChatId(update))
+        }
     }
 
     private fun handleAnxiety(u: Update) {
@@ -71,7 +111,10 @@ class AnxietyDebunkerTelegramBot(
                 enableMarkdown(true)
                 replyMarkup = withNewAnxietyButtons()
             }
-            sender.execute(message)
+            val owner = u.message.messageId
+            val bot = sender.execute(message).messageId
+            anxietyToBotMessage[newAnxiety.id] = bot
+            ownerMessageToAnxiety[owner] = newAnxiety.id
         } catch (e: Exception) {
             silent.send("Error $e", getChatId(u))
         }
