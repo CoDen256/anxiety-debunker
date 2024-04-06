@@ -3,7 +3,6 @@ package coden.anxiety.debunker.telebot
 import coden.anxiety.debunker.core.api.AnxietyAnalyser
 import coden.anxiety.debunker.core.api.AnxietyHolder
 import coden.anxiety.debunker.core.api.AnxietyResolver
-import coden.anxiety.debunker.core.api.Console
 import org.telegram.abilitybots.api.bot.AbilityBot
 
 class AnxietyDebunkerTelegramBot(
@@ -11,7 +10,7 @@ class AnxietyDebunkerTelegramBot(
     private val analyser: AnxietyAnalyser,
     private val holder: AnxietyHolder,
     private val resolver: AnxietyResolver
-): AbilityBot(config.token, ), Console {
+): AbilityBot(config.token, config.username) {
     override fun creatorId(): Long {
         TODO("Not yet implemented")
     }

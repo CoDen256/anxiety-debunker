@@ -1,3 +1,4 @@
 telegram:
   token: "<token>"
   target: 1234567890
+  username: anxiety_debunker_bot
