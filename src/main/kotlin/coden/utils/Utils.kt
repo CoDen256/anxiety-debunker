@@ -1,4 +1,4 @@
-package coden.anxiety.debunker.core.impl
+package coden.utils
 
 import org.apache.logging.log4j.kotlin.KotlinLogger
 
