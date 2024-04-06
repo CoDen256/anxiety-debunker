@@ -4,6 +4,7 @@ import coden.anxiety.debunker.core.impl.DefaultAnxietyAnalyser
 import coden.anxiety.debunker.core.impl.DefaultAnxietyHolder
 import coden.anxiety.debunker.core.impl.DefaultAnxietyResolver
 import coden.anxiety.debunker.core.persistance.AnxietyRepository
+import coden.anxiety.debunker.inmemory.InMemoryAnxietyRepository
 import coden.anxiety.debunker.telebot.AnxietyDebunkerTelegramBot
 import coden.anxiety.debunker.telebot.TelegramBotConfig
 import coden.anxiety.debunker.telebot.TelegramBotConsole
@@ -24,7 +25,7 @@ fun config(): Config{
 fun main() {
     val config = config()
 
-    val repository: AnxietyRepository = null!!
+    val repository: AnxietyRepository = InMemoryAnxietyRepository()
 
     val resolver = DefaultAnxietyResolver(repository)
     val holder = DefaultAnxietyHolder(repository)
