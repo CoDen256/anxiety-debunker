@@ -50,14 +50,14 @@ class KeyboardBuilder{
     }
 }
 
-fun keyboard(keyboard: KeyboardBuilder.() -> Unit): ReplyKeyboard {
+fun keyboard(keyboard: KeyboardBuilder.() -> Unit): InlineKeyboardMarkup {
     val new = KeyboardBuilder()
     new.keyboard()
     return new.build().asReplyKeyboard()
 }
 
 
-fun Keyboard.asReplyKeyboard(): ReplyKeyboard {
+fun Keyboard.asReplyKeyboard(): InlineKeyboardMarkup {
     val markup = InlineKeyboardMarkup()
     val keyboard = ArrayList<List<InlineKeyboardButton>>()
 

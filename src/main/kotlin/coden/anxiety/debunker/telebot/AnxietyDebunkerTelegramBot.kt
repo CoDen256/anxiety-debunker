@@ -1,13 +1,16 @@
 package coden.anxiety.debunker.telebot
 
 import coden.anxiety.debunker.core.api.*
-import coden.anxiety.debunker.core.persistance.Anxiety
+import org.apache.logging.log4j.kotlin.Logging
+import org.apache.logging.log4j.kotlin.logger
 import org.telegram.abilitybots.api.bot.AbilityBot
 import org.telegram.abilitybots.api.objects.*
 import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.Update
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard
 import java.time.Instant
 import java.time.ZoneId
@@ -18,12 +21,13 @@ class AnxietyDebunkerTelegramBot(
     private val analyser: AnxietyAnalyser,
     private val holder: AnxietyHolder,
     private val resolver: AnxietyResolver
-) : AbilityBot(config.token, config.username) {
+) : AbilityBot(config.token, config.username), Logging {
     override fun creatorId(): Long {
         return config.target
     }
 
     private val anxietyToBotMessage: MutableMap<String, Int> = HashMap()
+    private val botMessageToAnxiety: MutableMap<Int, String> = HashMap()
     private val ownerMessageToAnxiety: MutableMap<Int, String> = HashMap()
 
     private fun sendHelloWorld(update: Update) {
@@ -63,6 +67,52 @@ class AnxietyDebunkerTelegramBot(
         return Flag.TEXT.test(update) && !update.message.text.startsWith("/")
     }
 
+    fun resolve(): Reply{
+        return Reply.of({b, u -> handleCallback(u, u.callbackQuery.data)}, Flag.CALLBACK_QUERY)
+    }
+
+    private fun handleCallback(update: Update, data: String){
+        logger.info("Handling callback for $data")
+        when(data){
+            FULFILL.data -> resolve(update, true)
+            UNFULFILL.data -> resolve(update, false)
+            UNRESOLVE.data -> unresolve(update)
+        }
+    }
+
+    private fun unresolve(update: Update){
+        logger.info("Unresolved callback")
+        val target = update.callbackQuery.message.messageId
+        val anxiety = botMessageToAnxiety[target]
+        if (anxiety == null) {
+            silent.send("Could not find corresponding anxiety for resolution", getChatId(update))
+            return
+        }
+        val result = resolver.unresolve(UnresolveAnxietyRequest(anxiety))
+            .onFailure { silent.send(it.message, getChatId(update)) }
+            .getOrNull() ?: return
+        updateReplyMarkup(target, result.anxietyId, getChatId(update))
+        updateDisplay(target, result.anxietyId, getChatId(update))
+    }
+
+
+    private fun resolve(update: Update, fulfilled: Boolean){
+        logger.info("Resolved callback")
+        val target = update.callbackQuery.message.messageId
+        val anxiety = botMessageToAnxiety[target]
+        if (anxiety == null) {
+            silent.send("Could not find corresponding anxiety for resolution", getChatId(update))
+            return
+        }
+        val result = resolver.resolve(ResolveAnxietyRequest(anxiety, fulfilled))
+            .onFailure { silent.send(it.message, getChatId(update)) }
+            .getOrNull() ?: return
+        updateReplyMarkup(target, result.anxietyId, getChatId(update))
+        updateDisplay(target, result.anxietyId, getChatId(update))
+    }
+
+
+
     private fun updateAnxiety(update: Update) {
         val anxiety = ownerMessageToAnxiety[update.editedMessage.messageId]
         if (anxiety == null) {
@@ -70,27 +120,71 @@ class AnxietyDebunkerTelegramBot(
             return
         }
 
-        val botMessage = anxietyToBotMessage[anxiety]
+        val botMessage: Int? = anxietyToBotMessage[anxiety]
         if (botMessage == null) {
             silent.send("Unable to find anxiety message", getChatId(update))
+            return
         }
+        val updated = holder.update(UpdateAnxietyRequest(anxiety, update.editedMessage.text))
+            .onFailure { silent.send(it.message, getChatId(update)) }
+            .getOrNull() ?: return
 
+        updateDisplay(botMessage, updated.id, getChatId(update))
+    }
+
+    private fun updateReplyMarkup(
+        target: Int,
+        id: String,
+        chatId: Long
+    ) {
         try {
-            val edit = EditMessageText()
-            val updated = holder.update(UpdateAnxietyRequest(anxiety, update.editedMessage.text))
-                .onFailure { silent.send(it.message, getChatId(update)) }
+            val anxietyEntity = analyser.anxiety(AnxietyRequest(id))
+                .onFailure { silent.send("Unable to get anxiety entity: ${it.message}", chatId) }
                 .getOrNull() ?: return
 
-            val anxietyEntity = analyser.anxiety(AnxietyRequest(updated.id))
-                .onFailure { silent.send("Unable to get anxiety entity: ${it.message}", getChatId(update)) }
-                .getOrNull() ?: return
-            edit.text = formatAnxiety(anxietyEntity.id, anxietyEntity.created, anxietyEntity.description, anxietyEntity.resolution)
-            edit.messageId = botMessage
-            edit.enableMarkdown(true)
-            edit.chatId = getChatId(update).toString()
+            val markup = when(anxietyEntity.resolution){
+                AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
+                else -> withResolvedAnxietyButtons()
+            }
+            val edit = EditMessageReplyMarkup()
+            edit.replyMarkup = markup
+            edit.messageId = target
+
+            edit.chatId = chatId.toString()
             sender.execute(edit)
-        }catch (e:Exception){
-            silent.send("Anxiety could not be updated: ${e.message}", getChatId(update))
+        } catch (e: Exception) {
+            silent.send("Anxiety could not be updated: ${e.message}", chatId)
+        }
+    }
+
+    private fun updateDisplay(
+        target: Int,
+        id: String,
+        chatId: Long
+    ) {
+        try {
+            val anxietyEntity = analyser.anxiety(AnxietyRequest(id))
+                .onFailure { silent.send("Unable to get anxiety entity: ${it.message}", chatId) }
+                .getOrNull() ?: return
+
+            val markup = when(anxietyEntity.resolution){
+                AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
+                else -> withResolvedAnxietyButtons()
+            }
+            val edit = EditMessageText()
+            edit.text = formatAnxiety(
+                anxietyEntity.id,
+                anxietyEntity.created,
+                anxietyEntity.description,
+                anxietyEntity.resolution
+            )
+            edit.replyMarkup = markup
+            edit.messageId = target
+            edit.enableMarkdown(true)
+            edit.chatId = chatId.toString()
+            sender.execute(edit)
+        } catch (e: Exception) {
+            silent.send("Anxiety could not be updated: ${e.message}", chatId)
         }
     }
 
@@ -114,6 +208,7 @@ class AnxietyDebunkerTelegramBot(
             val owner = u.message.messageId
             val bot = sender.execute(message).messageId
             anxietyToBotMessage[newAnxiety.id] = bot
+            botMessageToAnxiety[bot] = newAnxiety.id
             ownerMessageToAnxiety[owner] = newAnxiety.id
         } catch (e: Exception) {
             silent.send("Error $e", getChatId(u))
@@ -137,13 +232,13 @@ class AnxietyDebunkerTelegramBot(
                 "\n\n$description"
     }
 
-    fun withNewAnxietyButtons(): ReplyKeyboard {
+    fun withNewAnxietyButtons(): InlineKeyboardMarkup {
         return keyboard {
             row { b(FULFILL); b(UNFULFILL) }
         }
     }
 
-    fun withResolvedAnxietyButtons(): ReplyKeyboard {
+    fun withResolvedAnxietyButtons(): InlineKeyboardMarkup {
         return keyboard {
             row { b(UNRESOLVE) }
         }
