@@ -11,13 +11,23 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.code.style>official</kotlin.code.style>
-        <kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
+        <kotlin.compiler.jvmTarget>11</kotlin.compiler.jvmTarget>
+        <notion-sdk.version>1.11.0</notion-sdk.version>
+
     </properties>
 
     <repositories>
         <repository>
             <id>mavenCentral</id>
             <url>https://repo1.maven.org/maven2/</url>
+        </repository>
+        <repository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+        </repository>
+        <repository>
+            <id>jcenter</id>
+            <url>https://jcenter.bintray.com/</url>
         </repository>
     </repositories>
 
@@ -66,6 +76,52 @@
     </build>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.14.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sksamuel.hoplite</groupId>
+            <artifactId>hoplite-yaml</artifactId>
+            <version>2.7.5</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.inmo</groupId>
+            <artifactId>krontab-jvm</artifactId>
+            <version>2.2.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-core</artifactId>
+            <version>1.8.0</version>
+            <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>io.github.kotlin-telegram-bot.kotlin-telegram-bot</groupId>
+            <artifactId>telegram</artifactId>
+            <version>6.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.seratch</groupId>
+            <artifactId>notion-sdk-jvm-core</artifactId>
+            <version>${notion-sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.seratch</groupId>
+            <artifactId>notion-sdk-jvm-okhttp4</artifactId>
+            <version>${notion-sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api-kotlin</artifactId>
+            <version>1.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.20.0</version>
+        </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-test-junit5</artifactId>

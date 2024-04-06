@@ -1,10 +1,10 @@
-package coden.anxiety.debunker.core
+package coden.anxiety.debunker.core.api
 
 import java.nio.file.DirectoryStream.Filter
 import java.time.Instant
 
 interface AnxietyAnalyser {
-    fun anxiety(request: NewAnxietyRequest): Result<AnxietyEntityResponse>
+    fun anxiety(request: AnxietyRequest): Result<AnxietyEntityResponse>
     fun anxieties(request: ListAnxietyRequest): Result<AnxietyListResponse>
 
     fun resolution(request: ResolutionRequest): Result<ResolutionEntityResponse>
@@ -23,11 +23,11 @@ data class ListAnxietyRequest(
 ): AnxietyAnalyserRequest
 
 enum class AnxietyFilter
-    (filter: Filter<AnxietyResolution>) : Filter<AnxietyResolution> by filter
+    (filter: Filter<AnxietyEntityResolution>) : Filter<AnxietyEntityResolution> by filter
 {
-    FULLFILLED({it == AnxietyResolution.FULFILLED}),
-    UNFULLFILLED({it == AnxietyResolution.UNFULFILLED}),
-    UNRESOLVED({it == AnxietyResolution.UNRESOLVED}),
+    FULLFILLED({it == AnxietyEntityResolution.FULFILLED }),
+    UNFULLFILLED({it == AnxietyEntityResolution.UNFULFILLED }),
+    UNRESOLVED({it == AnxietyEntityResolution.UNRESOLVED }),
     ALL({true})
 }
 
@@ -42,13 +42,12 @@ interface AnxietyAnalyserResponse
 data class AnxietyEntityResponse(
     val id: String,
     val description: String,
-    val resolution: AnxietyResolution,
+    val resolution: AnxietyEntityResolution,
     val created: Instant,
 ): AnxietyAnalyserResponse
 
-enum class AnxietyResolution{
-    FULFILLED, UNFULFILLED, UNRESOLVED
-}
+enum class AnxietyEntityResolution{ FULFILLED, UNFULFILLED, UNRESOLVED }
+
 
 data class AnxietyListResponse(
     val anxieties: List<AnxietyEntityResponse>
