@@ -98,19 +98,15 @@
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>io.github.kotlin-telegram-bot.kotlin-telegram-bot</groupId>
-            <artifactId>telegram</artifactId>
-            <version>6.1.0</version>
+            <groupId>org.telegram</groupId>
+            <artifactId>telegrambots</artifactId>
+            <version>6.8.0</version>
         </dependency>
+
         <dependency>
-            <groupId>com.github.seratch</groupId>
-            <artifactId>notion-sdk-jvm-core</artifactId>
-            <version>${notion-sdk.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.seratch</groupId>
-            <artifactId>notion-sdk-jvm-okhttp4</artifactId>
-            <version>${notion-sdk.version}</version>
+            <groupId>org.telegram</groupId>
+            <artifactId>telegrambots-abilities</artifactId>
+            <version>6.8.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>

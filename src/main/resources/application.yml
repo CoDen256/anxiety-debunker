@@ -1,0 +1,3 @@
+telegram:
+  token: "<token>"
+  target: 1234567890
