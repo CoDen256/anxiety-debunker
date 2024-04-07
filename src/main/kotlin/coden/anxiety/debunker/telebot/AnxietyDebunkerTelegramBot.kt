@@ -10,15 +10,14 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageRe
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+
 
 class AnxietyDebunkerTelegramBot(
     private val config: TelegramBotConfig,
     private val analyser: AnxietyAnalyser,
     private val holder: AnxietyHolder,
-    private val resolver: AnxietyResolver
+    private val resolver: AnxietyResolver,
+    private val formatter: AnxietyFormatter
 ) : AbilityBot(config.token, config.username),StartableLongPollingBot, Logging {
     override fun creatorId(): Long {
         return config.target
@@ -37,6 +36,17 @@ class AnxietyDebunkerTelegramBot(
         silent.sendMd(intro, config.target)
     }
 
+    fun anxietyStats(): Ability{
+        return Ability
+            .builder()
+            .name("stat")
+            .input(0)
+            .action { displayStats(it.update()) }
+            .locality(Locality.USER)
+            .privacy(Privacy.ADMIN)
+            .build()
+    }
+
     fun anxiety(): Ability {
         return Ability
             .builder()
@@ -47,6 +57,28 @@ class AnxietyDebunkerTelegramBot(
             .privacy(Privacy.ADMIN)
             .build()
     }
+
+    fun displayStats(update: Update) {
+        val anxieties = analyser
+            .anxieties(ListAnxietiesRequest(AnxietyFilter.ALL))
+            .onFailure { silent.send(it.message, getChatId(update)) }
+            .getOrNull() ?: return
+
+        try {
+            val s = "<pre>${formatter.format(anxieties)}</pre>"
+            val message = SendMessage().apply {
+                text = s
+                enableHtml(true)
+                chatId = getChatId(update).toString()
+            }
+            sender.execute(message)
+        }catch (e:Exception){
+            silent.send("Error: ${e.message}", getChatId(update))
+        }
+
+    }
+
+
 
     fun onAnxiety(): Reply {
         return Reply.of({ b, u -> handleAnxiety(u) }, { isNotCommand(it) })
@@ -164,7 +196,7 @@ class AnxietyDebunkerTelegramBot(
                 else -> withResolvedAnxietyButtons()
             }
             val edit = EditMessageText()
-            edit.text = formatAnxiety(
+            edit.text = formatter.formatAnxiety(
                 anxietyEntity.id,
                 anxietyEntity.created,
                 anxietyEntity.description,
@@ -192,7 +224,7 @@ class AnxietyDebunkerTelegramBot(
         try {
 
             val message = SendMessage().apply {
-                text = formatAnxiety(newAnxiety.id, newAnxiety.created, newAnxiety.description, AnxietyEntityResolution.UNRESOLVED)
+                text = formatter.formatAnxiety(newAnxiety.id, newAnxiety.created, newAnxiety.description, AnxietyEntityResolution.UNRESOLVED)
                 chatId = getChatId(u).toString()
                 enableMarkdown(true)
                 replyMarkup = withNewAnxietyButtons()
@@ -216,21 +248,6 @@ class AnxietyDebunkerTelegramBot(
         return u.message.text
     }
 
-    private val formatter = DateTimeFormatter.ofPattern("d MMM HH:mm")
-
-    fun formatAnxiety(id: String, created: Instant, description: String, resolution: AnxietyEntityResolution): String {
-        return "*Anxiety* #${id} ${formatResolution(resolution)}" +
-                "\n${formatter.format(created.atZone(ZoneId.of("CET")))}" +
-                "\n\n$description"
-    }
-
-    fun formatResolution(resolution: AnxietyEntityResolution): String{
-        return when(resolution){
-            AnxietyEntityResolution.UNRESOLVED -> "❓"
-            AnxietyEntityResolution.FULFILLED -> "\uD83D\uDD34"
-            AnxietyEntityResolution.UNFULFILLED -> "\uD83D\uDFE2"
-        }
-    }
 
     fun withNewAnxietyButtons(): InlineKeyboardMarkup {
         return keyboard {

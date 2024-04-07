@@ -25,7 +25,10 @@ class DefaultAnxietyAnalyser
 
         return anxietyRepository
             .anxieties()
-            .map { anxieties -> anxieties.map { mapAnxietyToEntityResponse(it) } }
+            .map { anxieties -> anxieties
+                .map { mapAnxietyToEntityResponse(it) }
+                .filter { request.filter.accept(it.resolution) }
+            }
             .map { AnxietyListResponse(it) }
             .logInteraction(logger, "Requesting all anxieties")
     }
