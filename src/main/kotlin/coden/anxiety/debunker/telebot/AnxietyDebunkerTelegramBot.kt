@@ -2,7 +2,6 @@ package coden.anxiety.debunker.telebot
 
 import coden.anxiety.debunker.core.api.*
 import org.apache.logging.log4j.kotlin.Logging
-import org.apache.logging.log4j.kotlin.logger
 import org.telegram.abilitybots.api.bot.AbilityBot
 import org.telegram.abilitybots.api.objects.*
 import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
@@ -11,7 +10,6 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageRe
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -21,7 +19,7 @@ class AnxietyDebunkerTelegramBot(
     private val analyser: AnxietyAnalyser,
     private val holder: AnxietyHolder,
     private val resolver: AnxietyResolver
-) : AbilityBot(config.token, config.username), Logging {
+) : AbilityBot(config.token, config.username),StartableLongPollingBot, Logging {
     override fun creatorId(): Long {
         return config.target
     }
@@ -30,18 +28,13 @@ class AnxietyDebunkerTelegramBot(
     private val botMessageToAnxiety: MutableMap<Int, String> = HashMap()
     private val ownerMessageToAnxiety: MutableMap<Int, String> = HashMap()
 
-    private fun sendHelloWorld(update: Update) {
-        silent.send("Hello world", getChatId(update))
-    }
+    private val intro = "Hi! This is Anxiety Debunker, I will convince you:\n" +
+            "\n1. Anxiety isn't happening really, it's a product of your mind" +
+            "\n2. Fears are nearly *never* fulfilled." +
+            "\n3. You will *always* eventually be fine."
 
-    fun sayHelloWorldOnStart(): Ability {
-        return Ability
-            .builder()
-            .name("start")
-            .locality(Locality.USER)
-            .privacy(Privacy.PUBLIC)
-            .action { sendHelloWorld(it.update()) }
-            .build()
+    override fun start() {
+        silent.sendMd(intro, config.target)
     }
 
     fun anxiety(): Ability {
@@ -110,7 +103,6 @@ class AnxietyDebunkerTelegramBot(
         updateReplyMarkup(target, result.anxietyId, getChatId(update))
         updateDisplay(target, result.anxietyId, getChatId(update))
     }
-
 
 
     private fun updateAnxiety(update: Update) {
@@ -227,9 +219,17 @@ class AnxietyDebunkerTelegramBot(
     private val formatter = DateTimeFormatter.ofPattern("d MMM HH:mm")
 
     fun formatAnxiety(id: String, created: Instant, description: String, resolution: AnxietyEntityResolution): String {
-        return "*Anxiety* #${id} \\[`$resolution`]" +
+        return "*Anxiety* #${id} ${formatResolution(resolution)}" +
                 "\n${formatter.format(created.atZone(ZoneId.of("CET")))}" +
                 "\n\n$description"
+    }
+
+    fun formatResolution(resolution: AnxietyEntityResolution): String{
+        return when(resolution){
+            AnxietyEntityResolution.UNRESOLVED -> "❓"
+            AnxietyEntityResolution.FULFILLED -> "\uD83D\uDD34"
+            AnxietyEntityResolution.UNFULFILLED -> "\uD83D\uDFE2"
+        }
     }
 
     fun withNewAnxietyButtons(): InlineKeyboardMarkup {
@@ -244,7 +244,7 @@ class AnxietyDebunkerTelegramBot(
         }
     }
 
-    private val UNRESOLVE = KeyboardButton("Unresolve")
-    private val FULFILL = KeyboardButton("Fulfilled")
-    private val UNFULFILL = KeyboardButton("Unfulfilled")
+    private val UNRESOLVE = KeyboardButton("↩\uFE0F Unresolve", "UNRESOLVE")
+    private val FULFILL = KeyboardButton("❌ Fucked", "FULLFILL")
+    private val UNFULFILL = KeyboardButton("✅ Fine", "UNFULFILLED")
 }

@@ -13,7 +13,7 @@ data class KeyboardLine(
     val buttons: List<KeyboardButton>,
 )
 
-data class KeyboardButton(
+open class KeyboardButton(
     val text: String,
     val data: String=text
 )
