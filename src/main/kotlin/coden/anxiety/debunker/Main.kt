@@ -13,6 +13,8 @@ import coden.anxiety.debunker.telebot.TelegramBotConfig
 import coden.anxiety.debunker.telebot.TelegramBotConsole
 import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.addFileSource
+import com.sksamuel.hoplite.yaml.YamlParser
+import java.io.FileInputStream
 
 data class Config(
     val telegram: TelegramBotConfig

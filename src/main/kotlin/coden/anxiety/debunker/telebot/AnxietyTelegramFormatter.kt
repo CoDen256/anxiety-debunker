@@ -15,7 +15,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
 
     override fun format(response: AnxietyListResponse): String{
         val table = PrettyTable("created", "id", "anxiety")
-        for (anxiety in response.anxieties){
+        for (anxiety in response.anxieties.sortedBy { it.created }){
             val created = short.format(anxiety.created.atZone(ZoneId.of("CET")))
             val res = formatResolution(anxiety.resolution)
             table.addRow("$res $created", anxiety.id, anxiety.description.take(15))
@@ -34,8 +34,6 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
             AnxietyEntityResolution.UNRESOLVED -> "\uD83D\uDD18"
             AnxietyEntityResolution.FULFILLED -> "🔴"
             AnxietyEntityResolution.UNFULFILLED -> "🟢"
-
-//                🫥
         }
     }
     private fun formatTableResolution(resolution: AnxietyEntityResolution): String{
@@ -43,8 +41,6 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
             AnxietyEntityResolution.UNRESOLVED -> "▫\uFE0F"
             AnxietyEntityResolution.FULFILLED -> "🔴"
             AnxietyEntityResolution.UNFULFILLED -> "🟢"
-
-//                🫥
         }
     }
 

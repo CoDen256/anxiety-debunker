@@ -27,13 +27,19 @@ class AnxietyDebunkerTelegramBot(
     private val botMessageToAnxiety: MutableMap<Int, String> = HashMap()
     private val ownerMessageToAnxiety: MutableMap<Int, String> = HashMap()
 
-    private val intro = "Hi! This is Anxiety Debunker, I will convince you:\n" +
-            "\n1. Anxiety isn't happening really, it's a product of your mind" +
-            "\n2. Fears are nearly *never* fulfilled." +
-            "\n3. You will *always* eventually be fine."
-
     override fun start() {
-        silent.sendMd(intro, config.target)
+        silent.sendMd(config.intro, config.target)
+    }
+
+    fun startAbility(): Ability {
+        return Ability
+            .builder()
+            .name("start")
+            .input(0)
+            .action { silent.sendMd(config.intro, config.target)}
+            .locality(Locality.USER)
+            .privacy(Privacy.ADMIN)
+            .build()
     }
 
     fun anxietyStats(): Ability{
@@ -77,7 +83,6 @@ class AnxietyDebunkerTelegramBot(
         }
 
     }
-
 
 
     fun onAnxiety(): Reply {
