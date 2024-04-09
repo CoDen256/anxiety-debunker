@@ -1,4 +1,4 @@
-package coden.anxiety.debunker.telebot
+package coden.anxiety.debunker.telegram.bot
 
 import org.telegram.telegrambots.meta.generics.LongPollingBot
 

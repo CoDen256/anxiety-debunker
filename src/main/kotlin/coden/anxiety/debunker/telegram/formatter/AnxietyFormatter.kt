@@ -1,4 +1,4 @@
-package coden.anxiety.debunker.telebot
+package coden.anxiety.debunker.telegram.formatter
 
 import coden.anxiety.debunker.core.api.AnxietyEntityResolution
 import coden.anxiety.debunker.core.api.AnxietyListResponse

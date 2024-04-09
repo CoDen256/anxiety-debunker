@@ -10,6 +10,7 @@ import coden.anxiety.debunker.telegram.bot.AnxietyDebunkerTelegramBot
 import coden.anxiety.debunker.telegram.formatter.AnxietyTelegramFormatter
 import coden.anxiety.debunker.telegram.TelegramBotConfig
 import coden.anxiety.debunker.telegram.TelegramBotConsole
+import coden.anxiety.debunker.telegram.db.AnxietyDebunkerDBContext
 import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.addFileSource
 
@@ -46,6 +47,7 @@ fun main() {
     val analyser = DefaultAnxietyAnalyser(repository)
     val assessor = DefaultAnxietyAssessor(repository)
     val formatter = AnxietyTelegramFormatter()
+    val db = AnxietyDebunkerDBContext("debunker.db")
 
     val bot = AnxietyDebunkerTelegramBot(
         config.telegram,
@@ -54,6 +56,7 @@ fun main() {
         resolver,
         assessor,
         formatter,
+        db
     )
     val console = TelegramBotConsole(bot)
 

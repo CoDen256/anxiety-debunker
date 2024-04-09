@@ -1,7 +1,6 @@
-package coden.anxiety.debunker.telebot
+package coden.anxiety.debunker.telegram.keyboard
 
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
 
 
@@ -30,7 +29,7 @@ class KeyboardLineBuilder{
         return this
     }
 
-    internal fun build(): KeyboardLine{
+    internal fun build(): KeyboardLine {
         return KeyboardLine(line)
     }
 }
@@ -38,14 +37,14 @@ class KeyboardLineBuilder{
 class KeyboardBuilder{
     private val lines = ArrayList<KeyboardLine>()
 
-    fun row(line: KeyboardLineBuilder.() -> Unit): KeyboardBuilder{
+    fun row(line: KeyboardLineBuilder.() -> Unit): KeyboardBuilder {
         val new = KeyboardLineBuilder()
         line.invoke(new)
         lines.add(new.build())
         return this
     }
 
-    internal fun build(): Keyboard{
+    internal fun build(): Keyboard {
         return Keyboard(lines)
     }
 }

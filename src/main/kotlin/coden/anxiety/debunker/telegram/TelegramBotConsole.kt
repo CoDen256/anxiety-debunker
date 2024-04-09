@@ -1,6 +1,7 @@
-package coden.anxiety.debunker.telebot
+package coden.anxiety.debunker.telegram
 
 import coden.anxiety.debunker.core.api.Console
+import coden.anxiety.debunker.telegram.bot.StartableLongPollingBot
 import org.apache.logging.log4j.kotlin.Logging
 import org.telegram.telegrambots.meta.TelegramBotsApi
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException

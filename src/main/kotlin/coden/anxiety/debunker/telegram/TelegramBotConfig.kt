@@ -1,4 +1,4 @@
-package coden.anxiety.debunker.telebot
+package coden.anxiety.debunker.telegram
 
 data class TelegramBotConfig (
     val token: String,

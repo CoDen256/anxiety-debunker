@@ -3,6 +3,10 @@ package coden.anxiety.debunker.telegram.bot
 import coden.anxiety.debunker.core.api.*
 import coden.anxiety.debunker.core.persistance.RiskLevel
 import coden.anxiety.debunker.telegram.*
+import coden.anxiety.debunker.telegram.db.AnxietyDebunkerDBContext
+import coden.anxiety.debunker.telegram.db.BotMessage
+import coden.anxiety.debunker.telegram.db.BotMessage.Companion.asBot
+import coden.anxiety.debunker.telegram.db.OwnerMessage.Companion.asOwner
 import coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
 import coden.anxiety.debunker.telegram.keyboard.KeyboardButton
 import coden.anxiety.debunker.telegram.keyboard.keyboard
@@ -24,15 +28,11 @@ class AnxietyDebunkerTelegramBot(
     private val resolver: AnxietyResolver,
     private val assessor: AnxietyAssessor,
     private val formatter: AnxietyFormatter,
-) : AbilityBot(config.token, config.username), StartableLongPollingBot, Logging {
+    private val anxietyDb: AnxietyDebunkerDBContext,
+) : AbilityBot(config.token, config.username, anxietyDb), StartableLongPollingBot, Logging {
     override fun creatorId(): Long {
         return config.target
     }
-
-    private val anxietyToBotMessage: MutableMap<String, Int> = HashMap()
-    private val botMessageToAnxiety: MutableMap<Int, String> = HashMap()
-    private val ownerMessageToAnxiety: MutableMap<Int, String> = HashMap()
-
     override fun start() {
         silent.sendMd(config.intro, config.target)
     }
@@ -118,8 +118,8 @@ class AnxietyDebunkerTelegramBot(
 
     private fun unresolve(update: Update){
         logger.info("Unresolved callback")
-        val target = update.callbackQuery.message.messageId
-        val anxiety = botMessageToAnxiety[target]
+        val target = update.callbackQuery.message.asBot()
+        val anxiety = anxietyDb.getAnxietyByBotMessage(target)
         if (anxiety == null) {
             silent.send("Could not find corresponding anxiety for resolution", getChatId(update))
             return
@@ -134,8 +134,8 @@ class AnxietyDebunkerTelegramBot(
 
     private fun resolve(update: Update, fulfilled: Boolean){
         logger.info("Resolved callback")
-        val target = update.callbackQuery.message.messageId
-        val anxiety = botMessageToAnxiety[target]
+        val target = update.callbackQuery.message.asBot()
+        val anxiety = anxietyDb.getAnxietyByBotMessage(target)
         if (anxiety == null) {
             silent.send("Could not find corresponding anxiety for resolution", getChatId(update))
             return
@@ -149,26 +149,23 @@ class AnxietyDebunkerTelegramBot(
 
 
     private fun updateAnxiety(update: Update) {
-        val anxiety = ownerMessageToAnxiety[update.editedMessage.messageId]
+        val anxiety = anxietyDb.getAnxietyByOwnerMessage(update.message.asOwner())
         if (anxiety == null) {
             silent.send("Unable to find corresponding anxiety", getChatId(update))
-            return
-        }
-
-        val botMessage: Int? = anxietyToBotMessage[anxiety]
-        if (botMessage == null) {
-            silent.send("Unable to find anxiety message", getChatId(update))
             return
         }
         val updated = holder.update(UpdateAnxietyRequest(anxiety, update.editedMessage.text))
             .onFailure { silent.send(it.message, getChatId(update)) }
             .getOrNull() ?: return
 
-        updateDisplay(botMessage, updated.id, getChatId(update))
+        val targets: Set<BotMessage> = anxietyDb.getBotMessagesByAnxiety(anxiety)
+        for (target in targets) {
+            updateDisplay(target, updated.id, getChatId(update))
+        }
     }
 
     private fun updateReplyMarkup(
-        target: Int,
+        target: BotMessage,
         id: String,
         chatId: Long
     ) {
@@ -183,7 +180,7 @@ class AnxietyDebunkerTelegramBot(
             }
             val edit = EditMessageReplyMarkup()
             edit.replyMarkup = markup
-            edit.messageId = target
+            edit.messageId = target.id
 
             edit.chatId = chatId.toString()
             sender.execute(edit)
@@ -193,7 +190,7 @@ class AnxietyDebunkerTelegramBot(
     }
 
     private fun updateDisplay(
-        target: Int,
+        target: BotMessage,
         id: String,
         chatId: Long
     ) {
@@ -214,7 +211,7 @@ class AnxietyDebunkerTelegramBot(
                 anxietyEntity.resolution
             )
             edit.replyMarkup = markup
-            edit.messageId = target
+            edit.messageId = target.id
             edit.enableMarkdown(true)
             edit.chatId = chatId.toString()
             sender.execute(edit)
@@ -242,15 +239,13 @@ class AnxietyDebunkerTelegramBot(
                 enableMarkdown(true)
                 replyMarkup = withNewAnxietyButtons()
             }
-            val owner = u.message.messageId
-            val bot = sender.execute(message).messageId
-            anxietyToBotMessage[newAnxiety.id] = bot
-            botMessageToAnxiety[bot] = newAnxiety.id
-            ownerMessageToAnxiety[owner] = newAnxiety.id
+            val ownerMessage = u.message.asOwner()
+            val botMessage = sender.execute(message).asBot()
+            anxietyDb.addOwnerMessage(newAnxiety.id, ownerMessage)
+            anxietyDb.addBotMessage(newAnxiety.id, botMessage)
         } catch (e: Exception) {
             silent.send("Error $e", getChatId(u))
         }
-
     }
 
     private fun clean(u: Update): String {

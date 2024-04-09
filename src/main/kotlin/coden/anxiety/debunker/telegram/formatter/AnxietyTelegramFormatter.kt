@@ -1,4 +1,4 @@
-package coden.anxiety.debunker.telebot
+package coden.anxiety.debunker.telegram.formatter
 
 import coden.anxiety.debunker.core.api.AnxietyEntityResolution
 import coden.anxiety.debunker.core.api.AnxietyEntityResponse
@@ -48,7 +48,8 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
 
 
 fun main() {
-    println(AnxietyTelegramFormatter().format(
+    println(
+        AnxietyTelegramFormatter().format(
         AnxietyListResponse(listOf(
             AnxietyEntityResponse("abdc", "I don't know its hard to comprehend, but actually i think that it is possible that im not wrong and its all about.", Instant.now(), AnxietyEntityResolution.FULFILLED, null),
             AnxietyEntityResponse("abdc", "I don't know its hard to comprehend, but actually i think that it is possible that im not wrong and its all about.", Instant.now(), AnxietyEntityResolution.UNFULFILLED, null),
