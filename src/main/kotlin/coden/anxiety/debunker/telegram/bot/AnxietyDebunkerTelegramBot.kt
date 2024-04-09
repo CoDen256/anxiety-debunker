@@ -1,6 +1,11 @@
-package coden.anxiety.debunker.telebot
+package coden.anxiety.debunker.telegram.bot
 
 import coden.anxiety.debunker.core.api.*
+import coden.anxiety.debunker.core.persistance.RiskLevel
+import coden.anxiety.debunker.telegram.*
+import coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
+import coden.anxiety.debunker.telegram.keyboard.KeyboardButton
+import coden.anxiety.debunker.telegram.keyboard.keyboard
 import org.apache.logging.log4j.kotlin.Logging
 import org.telegram.abilitybots.api.bot.AbilityBot
 import org.telegram.abilitybots.api.objects.*
@@ -17,8 +22,9 @@ class AnxietyDebunkerTelegramBot(
     private val analyser: AnxietyAnalyser,
     private val holder: AnxietyHolder,
     private val resolver: AnxietyResolver,
-    private val formatter: AnxietyFormatter
-) : AbilityBot(config.token, config.username),StartableLongPollingBot, Logging {
+    private val assessor: AnxietyAssessor,
+    private val formatter: AnxietyFormatter,
+) : AbilityBot(config.token, config.username), StartableLongPollingBot, Logging {
     override fun creatorId(): Long {
         return config.target
     }
@@ -36,7 +42,7 @@ class AnxietyDebunkerTelegramBot(
             .builder()
             .name("start")
             .input(0)
-            .action { silent.sendMd(config.intro, config.target)}
+            .action { silent.sendMd(config.intro, config.target) }
             .locality(Locality.USER)
             .privacy(Privacy.ADMIN)
             .build()
@@ -66,7 +72,7 @@ class AnxietyDebunkerTelegramBot(
 
     fun displayStats(update: Update) {
         val anxieties = analyser
-            .anxieties(ListAnxietiesRequest(AnxietyFilter.ALL))
+            .anxieties(ListAnxietiesRequest(AnxietyFilter.MAX_RISK))
             .onFailure { silent.send(it.message, getChatId(update)) }
             .getOrNull() ?: return
 
@@ -225,6 +231,8 @@ class AnxietyDebunkerTelegramBot(
         val newAnxiety = holder.add(NewAnxietyRequest(description))
             .onFailure { silent.send("Unable to add new anxiety: ${it.message}", getChatId(u)) }
             .getOrNull() ?: return
+
+        assessor.add(NewRiskRequest(RiskLevel.MAX, newAnxiety.id))
 
         try {
 

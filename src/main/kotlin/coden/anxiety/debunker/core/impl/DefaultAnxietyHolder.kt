@@ -1,7 +1,7 @@
 package coden.anxiety.debunker.core.impl
 
 import coden.anxiety.debunker.core.api.*
-import coden.anxiety.debunker.core.persistance.Anxiety
+import coden.anxiety.debunker.core.persistance.NewAnxietyEntity
 import coden.anxiety.debunker.core.persistance.AnxietyRepository
 import coden.utils.logInteraction
 import org.apache.logging.log4j.kotlin.Logging
@@ -12,7 +12,7 @@ class DefaultAnxietyHolder(
     override fun add(request: NewAnxietyRequest): Result<NewAnxietyResponse> {
         logger.info("Adding new anxiety ${request.description.take(15)}[...]")
 
-        val anxiety = Anxiety(request.description)
+        val anxiety = NewAnxietyEntity(request.description)
         return repository
             .saveAnxiety(anxiety)
             .map { NewAnxietyResponse(anxiety.id, anxiety.description, anxiety.created) }

@@ -5,10 +5,11 @@ import coden.utils.success
 
 class InMemoryAnxietyRepository : AnxietyRepository {
 
-    private val anxieties: MutableMap<String, Anxiety> = HashMap()
+    private val anxieties: MutableMap<String, NewAnxietyEntity> = HashMap()
     private val resolutions: MutableMap<String, Resolution> = HashMap()
+    private val riskAssessments: MutableMap<String, RiskAssessment> = HashMap()
 
-    override fun saveAnxiety(anxiety: Anxiety): Result<Unit> {
+    override fun saveAnxiety(anxiety: NewAnxietyEntity): Result<Unit> {
         anxieties[anxiety.id] = anxiety
         return Unit.success()
     }
@@ -18,7 +19,12 @@ class InMemoryAnxietyRepository : AnxietyRepository {
         return Unit.success()
     }
 
-    override fun updateAnxiety(anxietyId: String, description: String): Result<Anxiety> {
+    override fun saveRiskAssessment(assessment: RiskAssessment): Result<Unit> {
+        riskAssessments[assessment.id] = assessment
+        return Unit.success()
+    }
+
+    override fun updateAnxiety(anxietyId: String, description: String): Result<NewAnxietyEntity> {
         if (!anxieties.containsKey(anxietyId)) {
             return Result.failure(NoSuchAnxietyException(anxietyId, "No anxiety with id $anxietyId"))
         }
@@ -51,6 +57,11 @@ class InMemoryAnxietyRepository : AnxietyRepository {
         return Result.success(Unit)
     }
 
+    override fun deleteRiskAssessment(assessmentId: String): Result<Unit> {
+        riskAssessments.remove(assessmentId)
+        return Result.success(Unit)
+    }
+
     override fun clearAnxieties(): Result<Long> {
         anxieties.clear()
         return Result.success(anxieties.size.toLong())
@@ -61,24 +72,31 @@ class InMemoryAnxietyRepository : AnxietyRepository {
         return Result.success(resolutions.size.toLong())
     }
 
-    override fun anxiety(anxietyId: String): Result<AnxietyWithResolution> {
+    override fun clearRiskAssessments(): Result<Long> {
+        riskAssessments.clear()
+        return Result.success(riskAssessments.size.toLong())
+    }
+
+    override fun anxiety(anxietyId: String): Result<Anxiety> {
         if (!anxieties.containsKey(anxietyId)) {
             return Result.failure(NoSuchAnxietyException(anxietyId, "No anxiety with id $anxietyId"))
         }
         val anxiety = anxieties[anxietyId]!!
         val resolution = resolutions[anxiety.id]
+        val assessment = riskAssessments.map { it.value }.filter { it.anxietyId == anxietyId }
 
         return Result.success(
-            AnxietyWithResolution(
+            Anxiety(
                 anxiety.id,
                 anxiety.description,
                 anxiety.created,
-                resolution
+                resolution,
+                assessment
             )
         )
     }
 
-    override fun anxieties(): Result<List<AnxietyWithResolution>> {
+    override fun anxieties(): Result<List<Anxiety>> {
         return Result.success(anxieties.map {
             anxiety(it.key).getOrThrow()
         })
