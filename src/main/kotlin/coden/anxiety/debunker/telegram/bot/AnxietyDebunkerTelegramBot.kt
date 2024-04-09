@@ -149,7 +149,7 @@ class AnxietyDebunkerTelegramBot(
 
 
     private fun updateAnxiety(update: Update) {
-        val anxiety = anxietyDb.getAnxietyByOwnerMessage(update.message.asOwner())
+        val anxiety = anxietyDb.getAnxietyByOwnerMessage(update.editedMessage.asOwner())
         if (anxiety == null) {
             silent.send("Unable to find corresponding anxiety", getChatId(update))
             return

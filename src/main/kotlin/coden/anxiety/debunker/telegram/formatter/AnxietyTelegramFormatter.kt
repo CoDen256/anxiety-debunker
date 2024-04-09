@@ -45,15 +45,3 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
     }
 
 }
-
-
-fun main() {
-    println(
-        AnxietyTelegramFormatter().format(
-        AnxietyListResponse(listOf(
-            AnxietyEntityResponse("abdc", "I don't know its hard to comprehend, but actually i think that it is possible that im not wrong and its all about.", Instant.now(), AnxietyEntityResolution.FULFILLED, null),
-            AnxietyEntityResponse("abdc", "I don't know its hard to comprehend, but actually i think that it is possible that im not wrong and its all about.", Instant.now(), AnxietyEntityResolution.UNFULFILLED, null),
-            AnxietyEntityResponse("abdc", "I don't know its hard to comprehend, but actually i think that it is possible that im not wrong and its all about.", Instant.now(), AnxietyEntityResolution.UNRESOLVED, null)
-        ))
-    ))
-}

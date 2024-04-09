@@ -4,7 +4,7 @@ import org.mapdb.DB
 import org.mapdb.DBMaker
 import org.telegram.abilitybots.api.db.MapDBContext
 import org.telegram.telegrambots.meta.api.objects.MaybeInaccessibleMessage
-import org.telegram.telegrambots.meta.api.objects.Message
+import java.io.Serializable
 
 const val OWNER_ANXIETY_MESSAGES = "OWNER_ANXIETY_MESSAGES"
 const val BOT_ANXIETY_MESSAGES = "BOT_ANXIETY_MESSAGES"
@@ -57,9 +57,9 @@ open class AnxietyDebunkerDBContext(filename: String) : MapDBContext(db(filename
 data class AnxietyBoundMessage(
     val message: BotMessage,
     val anxietyId: String
-)
+): Serializable
 
-data class OwnerMessage(val id: Int) {
+data class OwnerMessage(val id: Int): Serializable {
     companion object {
         fun MaybeInaccessibleMessage.asOwner(): OwnerMessage {
             return OwnerMessage(this.messageId)
@@ -68,7 +68,7 @@ data class OwnerMessage(val id: Int) {
 
 }
 
-data class BotMessage(val id: Int) {
+data class BotMessage(val id: Int): Serializable {
     companion object {
         fun MaybeInaccessibleMessage.asBot(): BotMessage {
             return BotMessage(this.messageId)
