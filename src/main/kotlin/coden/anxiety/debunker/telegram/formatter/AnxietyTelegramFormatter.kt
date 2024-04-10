@@ -23,6 +23,14 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
         return table.toString()
     }
 
+    override fun formatShort(response: AnxietyListResponse): String {
+        val table = PrettyTable( "id", "anxiety")
+        for (anxiety in response.anxieties.sortedBy { it.created }){
+            table.addRow(anxiety.id, anxiety.description.take(15))
+        }
+        return table.toString()
+    }
+
     override fun formatAnxiety(id: String, created: Instant, description: String, resolution: AnxietyEntityResolution): String {
         return "*Anxiety* #${id} ${formatResolution(resolution)}" +
                 "\n${formatter.format(created.atZone(ZoneId.of("CET")))}" +

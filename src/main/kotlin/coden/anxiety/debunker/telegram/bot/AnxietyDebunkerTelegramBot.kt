@@ -3,7 +3,7 @@ package coden.anxiety.debunker.telegram.bot
 import coden.anxiety.debunker.core.api.*
 import coden.anxiety.debunker.core.persistance.RiskLevel
 import coden.anxiety.debunker.telegram.*
-import coden.anxiety.debunker.telegram.db.AnxietyDebunkerDBContext
+import coden.anxiety.debunker.telegram.db.AnxietyDBContext
 import coden.anxiety.debunker.telegram.db.BotMessage
 import coden.anxiety.debunker.telegram.db.BotMessage.Companion.asBot
 import coden.anxiety.debunker.telegram.db.OwnerMessage.Companion.asOwner
@@ -28,7 +28,7 @@ class AnxietyDebunkerTelegramBot(
     private val resolver: AnxietyResolver,
     private val assessor: AnxietyAssessor,
     private val formatter: AnxietyFormatter,
-    private val anxietyDb: AnxietyDebunkerDBContext,
+    private val anxietyDb: AnxietyDBContext,
 ) : AbilityBot(config.token, config.username, anxietyDb), StartableLongPollingBot, Logging {
     override fun creatorId(): Long {
         return config.target
@@ -92,16 +92,15 @@ class AnxietyDebunkerTelegramBot(
 
 
     fun onAnxiety(): Reply {
-        return Reply.of({ b, u -> handleAnxiety(u) }, { isNotCommand(it) })
+        return Reply.of({ b, u -> handleAnxiety(u) }, { !justText(it) })
     }
 
     fun editAnxiety(): Reply {
-        return Reply.of({b, u -> updateAnxiety(u)}, Flag.EDITED_MESSAGE)
+        return Reply.of({b, u ->
+            updateAnxiety(u)}, Flag.EDITED_MESSAGE)
     }
 
-    private fun isNotCommand(update: Update): Boolean {
-        return Flag.TEXT.test(update) && !update.message.text.startsWith("/")
-    }
+
 
     fun resolve(): Reply{
         return Reply.of({b, u -> handleCallback(u, u.callbackQuery.data)}, Flag.CALLBACK_QUERY)
@@ -223,7 +222,7 @@ class AnxietyDebunkerTelegramBot(
     private fun handleAnxiety(u: Update) {
         silent.send("Gotcha", getChatId(u))
 
-        val description = clean(u)
+        val description = cleanText(u)
 
         val newAnxiety = holder.add(NewAnxietyRequest(description))
             .onFailure { silent.send("Unable to add new anxiety: ${it.message}", getChatId(u)) }
@@ -248,13 +247,7 @@ class AnxietyDebunkerTelegramBot(
         }
     }
 
-    private fun clean(u: Update): String {
-        if (u.message.text.startsWith("/")){
-            if (!u.message.text.contains(" ")) return ""
-            return u.message.text.split(" ", limit = 2)[1]
-        }
-        return u.message.text
-    }
+
 
 
     fun withNewAnxietyButtons(): InlineKeyboardMarkup {

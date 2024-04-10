@@ -1,4 +1,17 @@
-telegram:
+debunker:
   token: "<token>"
   target: 1234567890
   username: anxiety_debunker_bot
+  intro: "Hi!!"
+
+recorder:
+  token: "<token>"
+  target: 1234567890
+  username: anxiety_recorder_bot
+  intro: "Hi!!"
+
+datasource:
+  inmemory: false
+  url: jdbc:postgresql://<host>/<schema>
+  password: <password>
+  user: <user>

@@ -6,6 +6,7 @@ import java.time.Instant
 
 interface AnxietyFormatter {
     fun format(response: AnxietyListResponse): String
+    fun formatShort(response: AnxietyListResponse): String
     fun formatResolution(resolution: AnxietyEntityResolution): String
     fun formatAnxiety(id: String, created: Instant, description: String, resolution: AnxietyEntityResolution): String
 }

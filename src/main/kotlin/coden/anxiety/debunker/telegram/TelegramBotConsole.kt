@@ -8,16 +8,19 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession
 
 class TelegramBotConsole(
-    private val bot: StartableLongPollingBot
+    private vararg val bots: StartableLongPollingBot
 ): Console, Logging {
 
     private val api = TelegramBotsApi(DefaultBotSession::class.java)
 
     override fun start() {
-        logger.info("Started polling of the telegram bot.")
+        logger.info("Starting the polling of the telegram bots")
         try {
-            api.registerBot(bot)
-            bot.start()
+            for (bot in bots) {
+                api.registerBot(bot)
+                bot.start()
+                logger.info("Started ${bot.name()}!")
+            }
         }catch (e: TelegramApiException){
             logger.error("Telegram bot got exception: ${e.message}", e)
         }
