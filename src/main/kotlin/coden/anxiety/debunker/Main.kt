@@ -5,6 +5,7 @@ import coden.anxiety.debunker.core.impl.DefaultAnxietyAssessor
 import coden.anxiety.debunker.core.impl.DefaultAnxietyHolder
 import coden.anxiety.debunker.core.impl.DefaultAnxietyResolver
 import coden.anxiety.debunker.core.persistance.*
+import coden.anxiety.debunker.inmemory.InMemoryAnxietyRepository
 import coden.anxiety.debunker.postgres.AnxietyDatabaseRepository
 import coden.anxiety.debunker.postgres.DatasourceConfig
 import coden.anxiety.debunker.postgres.database
@@ -28,11 +29,14 @@ fun config(): Config{
         .loadConfigOrThrow<Config>()
 }
 
+fun repo(datasource: DatasourceConfig): AnxietyRepository {
+    if (datasource.inmemory) return InMemoryAnxietyRepository()
+    return AnxietyDatabaseRepository(database(datasource))
+}
+
 fun main() {
     val config = config()
-    val db = database(config.datasource)
-    val repository: AnxietyRepository = AnxietyDatabaseRepository(db)
-    repository.anxiety("abcde").getOrThrow()
+    val repository: AnxietyRepository = repo(config.datasource)
 
     val resolver = DefaultAnxietyResolver(repository)
     val holder = DefaultAnxietyHolder(repository)
