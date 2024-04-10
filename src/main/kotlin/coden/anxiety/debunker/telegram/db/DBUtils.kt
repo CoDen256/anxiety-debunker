@@ -2,7 +2,7 @@ package coden.anxiety.debunker.telegram.db
 
 import org.mapdb.DB
 import org.mapdb.DBMaker
-import org.telegram.telegrambots.meta.api.objects.MaybeInaccessibleMessage
+import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage
 import java.io.Serializable
 
 

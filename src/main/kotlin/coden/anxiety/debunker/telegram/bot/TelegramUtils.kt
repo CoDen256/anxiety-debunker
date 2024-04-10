@@ -1,33 +1,20 @@
 package coden.anxiety.debunker.telegram.bot
 
 import coden.utils.successOrElse
-import org.telegram.abilitybots.api.bot.BaseAbilityBot
-import org.telegram.abilitybots.api.objects.*
-import org.telegram.abilitybots.api.sender.MessageSender
-import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
-import org.telegram.telegrambots.bots.DefaultBotOptions
+import org.telegram.telegrambots.abilitybots.api.bot.BaseAbilityBot
+import org.telegram.telegrambots.abilitybots.api.objects.*
+import org.telegram.telegrambots.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText.EditMessageTextBuilder
-import org.telegram.telegrambots.meta.api.objects.Message
 import org.telegram.telegrambots.meta.api.objects.Update
+import org.telegram.telegrambots.meta.api.objects.message.Message
 import org.telegram.telegrambots.meta.api.objects.reactions.ReactionTypeEmoji
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard
+import org.telegram.telegrambots.meta.generics.TelegramClient
 import java.util.function.Predicate
 
-fun options(allowedUpdates: List<String> = listOf(
-    "message_reaction",
-    "update_id",
-    "edited_message",
-    "message",
-    "callback_query",
-    "chosen_inline_result",
-    "inline_query"
-)): DefaultBotOptions {
-    return DefaultBotOptions()
-        .apply { this.allowedUpdates = allowedUpdates}
-}
 
 fun replyOn(filter: (Update) -> Boolean, handle: (Update) -> Unit): Reply {
     return Reply.of({bot, u ->
@@ -58,11 +45,11 @@ fun tryHandle(
     try {
         handle(u)
     } catch (e: Exception) {
-        bot.silent().send("⚠ ${e.message}: \n$e", u.chatId())
+        bot.silent.send("⚠ ${e.message}: \n$e", u.chatId())
     }
 }
 
-fun ability(cmd: String, handle: (Update) -> Unit): Ability{
+fun ability(cmd: String, handle: (Update) -> Unit): Ability {
     return Ability.builder()
         .name(cmd)
         .input(0)
@@ -79,34 +66,34 @@ fun replyOnCallback(handle: (Update, String) -> Unit): Reply = replyOn(Flag.CALL
 fun Update.chatId(): Long = getChatId(this)
 fun Update.strChatId(): String = chatId().toString()
 
-fun MessageSender.sendHtml(text: String, chatId: Long, replyMarkup: ReplyKeyboard?=null): Message {
-    val message = SendMessage().apply {
-        enableHtml(true)
-        this.text = text
-        this.chatId = chatId.toString()
-        this.replyMarkup = replyMarkup
-    }
+fun TelegramClient.sendHtml(text: String, chatId: Long, replyMarkup: ReplyKeyboard?=null): Message {
+    val message = SendMessage.builder().apply {
+        parseMode("html")
+        text(text)
+        chatId(chatId.toString())
+        replyMarkup(replyMarkup)
+    }.build()
     return execute(message)
 }
 
-fun MessageSender.sendMd(text: String,
+fun TelegramClient.sendMd(text: String,
                          chatId: Long,
                          replyMarkup: ReplyKeyboard?=null,
                          replyTo: Int?=null): Message {
-    val message = SendMessage().apply {
-        enableMarkdown(true)
-        this.text = text
-        this.chatId = chatId.toString()
-        this.replyToMessageId = replyTo
-        this.replyMarkup = replyMarkup
-    }
+    val message = SendMessage.builder().apply {
+        parseMode("Markdown")
+        text( text)
+        chatId( chatId.toString())
+        replyToMessageId( replyTo)
+        replyMarkup( replyMarkup)
+    }.build()
     return execute(message)
 }
 
-fun MessageSender.editMdRequest(text: String,
+fun TelegramClient.editMdRequest(text: String,
                                 chatId: Long,
                                 replyMarkup: InlineKeyboardMarkup?=null,
-                                messageId: Int?=null): EditMessageTextBuilder {
+                                messageId: Int?=null): EditMessageTextBuilder<*, *> {
     return EditMessageText.builder().apply {
         parseMode("Markdown")
         messageId(messageId)
@@ -117,7 +104,7 @@ fun MessageSender.editMdRequest(text: String,
     }
 }
 
-fun MessageSender.editMd(messageId: Int, text: String, chatId: Long, replyMarkup: InlineKeyboardMarkup?=null) {
+fun TelegramClient.editMd(messageId: Int, text: String, chatId: Long, replyMarkup: InlineKeyboardMarkup?=null) {
     val request = editMdRequest(text=text, chatId, replyMarkup, messageId ).build()
     execute(request)
 }

@@ -2,6 +2,7 @@ package coden.anxiety.debunker.telegram.keyboard
 
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow
 
 
 data class Keyboard(
@@ -14,14 +15,14 @@ data class KeyboardLine(
 
 open class KeyboardButton(
     val text: String,
-    val data: String?=null,
-    val switch: String?=null
+    val data: String? = null,
+    val switch: String? = null
 )
 
-class KeyboardLineBuilder{
+class KeyboardLineBuilder {
     private val line = ArrayList<KeyboardButton>()
 
-    fun b(text: String, data: String=text): KeyboardLineBuilder {
+    fun b(text: String, data: String = text): KeyboardLineBuilder {
         return b(KeyboardButton(text, data))
     }
 
@@ -35,7 +36,7 @@ class KeyboardLineBuilder{
     }
 }
 
-class KeyboardBuilder{
+class KeyboardBuilder {
     private val lines = ArrayList<KeyboardLine>()
 
     fun row(line: KeyboardLineBuilder.() -> Unit): KeyboardBuilder {
@@ -58,22 +59,21 @@ fun keyboard(keyboard: KeyboardBuilder.() -> Unit): InlineKeyboardMarkup {
 
 
 fun Keyboard.asReplyKeyboard(): InlineKeyboardMarkup {
-    val markup = InlineKeyboardMarkup()
-    val keyboard = ArrayList<List<InlineKeyboardButton>>()
+    val markup = InlineKeyboardMarkup.builder()
 
     for (line in lines) {
-        val inlineButtons = ArrayList<InlineKeyboardButton>()
-        for (button in line.buttons){
-            val b = InlineKeyboardButton()
-            b.text = button.text
-            b.switchInlineQueryCurrentChat = button.switch
-            b.callbackData = button.data
-            inlineButtons.add(b)
+        val row = InlineKeyboardRow()
+        for (button in line.buttons) {
+            val b = InlineKeyboardButton.builder().apply {
+                text(button.text)
+                switchInlineQueryCurrentChat(button.switch)
+                callbackData(button.data)
+            }.build()
+            row.add(b)
         }
-        keyboard.add(inlineButtons)
+        markup.keyboardRow(row)
     }
 
-    markup.keyboard = keyboard
-    return markup
+    return markup.build()
 }
 

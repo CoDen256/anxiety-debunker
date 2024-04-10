@@ -2,18 +2,21 @@ package coden.anxiety.debunker.telegram.bot
 
 import coden.anxiety.debunker.core.api.*
 import coden.anxiety.debunker.core.persistance.RiskLevel
-import coden.anxiety.debunker.telegram.*
+import coden.anxiety.debunker.telegram.TelegramBotConfig
 import coden.anxiety.debunker.telegram.db.AnxietyDBContext
 import coden.anxiety.debunker.telegram.db.BotMessage
 import coden.anxiety.debunker.telegram.db.BotMessage.Companion.asBot
 import coden.anxiety.debunker.telegram.db.OwnerMessage.Companion.asOwner
 import coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
 import org.apache.logging.log4j.kotlin.Logging
-import org.telegram.abilitybots.api.bot.AbilityBot
-import org.telegram.abilitybots.api.objects.*
-import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
+import org.telegram.telegrambots.abilitybots.api.bot.AbilityBot
+import org.telegram.telegrambots.abilitybots.api.objects.Ability
+import org.telegram.telegrambots.abilitybots.api.objects.Flag
+import org.telegram.telegrambots.abilitybots.api.objects.Reply
+import org.telegram.telegrambots.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.objects.Update
-import java.util.stream.Stream
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
+import org.telegram.telegrambots.meta.generics.TelegramClient
 
 
 class AnxietyDebunkerTelegramBot(
@@ -24,13 +27,23 @@ class AnxietyDebunkerTelegramBot(
     private val assessor: AnxietyAssessor,
     private val formatter: AnxietyFormatter,
     private val anxietyDb: AnxietyDBContext,
-) : AbilityBot(config.token, config.username, anxietyDb, options()), StartableLongPollingBot, Logging {
+    private val sender: TelegramClient,
+) : AbilityBot(sender, config.username, anxietyDb), StartableLongPollingBot, Logging {
+
+    init {
+        onRegister()
+    }
+
     override fun creatorId(): Long {
         return config.target
     }
 
     override fun run() {
         silent.sendMd(config.intro, config.target)
+    }
+
+    override fun token(): String {
+        return config.token
     }
 
     fun start(): Ability = ability("start") {
@@ -58,7 +71,7 @@ class AnxietyDebunkerTelegramBot(
         )
 
         val owner = anxietyDb.getOwnerMessageByAnxiety(anxietyId).getOrNull()
-        val replyMarkup = withNewAnxietyButtons()
+        val replyMarkup = markupFromResolution(anxiety.resolution)
         val botMessage = sender
             .sendMd(response, getChatId(upd), replyMarkup, replyTo = owner?.id)
             .asBot()
@@ -163,11 +176,7 @@ class AnxietyDebunkerTelegramBot(
             ?: return markDeleted(anxietyId, chatId, targets)
 
 
-
-        val markup = when (updatedAnxiety.resolution) {
-            AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
-            else -> withResolvedAnxietyButtons()
-        }
+        val markup = markupFromResolution(updatedAnxiety.resolution)
 
         val message = formatter.formatAnxiety(
             updatedAnxiety.id,
@@ -185,6 +194,16 @@ class AnxietyDebunkerTelegramBot(
         for (target in targets.sortedByDescending { it.id }) {
             sender.execute(editBuilder.messageId(target.id).build())
         }
+    }
+
+    private fun markupFromResolution(
+        resolution: AnxietyEntityResolution
+                                     ): InlineKeyboardMarkup {
+        val markup = when (resolution) {
+            AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
+            else -> withResolvedAnxietyButtons()
+        }
+        return markup
     }
 
     private fun markDeleted(anxietyId: String,

@@ -6,10 +6,11 @@ import coden.anxiety.debunker.telegram.db.AnxietyDBContext
 import coden.anxiety.debunker.telegram.db.BotMessage.Companion.asBot
 import coden.anxiety.debunker.telegram.db.OwnerMessage.Companion.asOwner
 import coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
-import org.telegram.abilitybots.api.bot.AbilityBot
-import org.telegram.abilitybots.api.objects.Ability
-import org.telegram.abilitybots.api.objects.Reply
-import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
+import org.telegram.telegrambots.abilitybots.api.bot.AbilityBot
+import org.telegram.telegrambots.abilitybots.api.objects.Ability
+import org.telegram.telegrambots.abilitybots.api.objects.Reply
+import org.telegram.telegrambots.abilitybots.api.util.AbilityUtils.getChatId
+import org.telegram.telegrambots.meta.generics.TelegramClient
 
 class AnxietyRecorderTelegramBot(
     private val config: TelegramBotConfig,
@@ -19,7 +20,8 @@ class AnxietyRecorderTelegramBot(
     private val assessor: AnxietyAssessor,
     private val formatter: AnxietyFormatter,
     private val anxietyDb: AnxietyDBContext,
-) : AbilityBot(config.token, config.username, anxietyDb, options()),
+    private val sender: TelegramClient,
+    ) : AbilityBot(sender, config.username, anxietyDb),
     StartableLongPollingBot {
     override fun creatorId(): Long {
         return config.target
@@ -27,6 +29,10 @@ class AnxietyRecorderTelegramBot(
 
     override fun run() {
         silent.sendMd(config.intro, config.target)
+    }
+
+    override fun token(): String {
+        return config.token
     }
 
     fun startCmd(): Ability = ability("start"){ run() }
