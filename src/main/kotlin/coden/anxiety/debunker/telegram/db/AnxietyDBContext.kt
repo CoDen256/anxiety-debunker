@@ -1,5 +1,6 @@
 package coden.anxiety.debunker.telegram.db
 
+import coden.utils.successOrElse
 import org.telegram.abilitybots.api.db.MapDBContext
 
 const val OWNER_ANXIETY_MESSAGES = "OWNER_ANXIETY_MESSAGES"
@@ -11,14 +12,19 @@ open class AnxietyDBContext(filename: String) : MapDBContext(db(filename)) {
         get() = getMap<OwnerMessage, String>(OWNER_ANXIETY_MESSAGES)
 
     private val botMessages
-        get() = getSet<AnxietyBoundMessage>(BOT_ANXIETY_MESSAGES)
+        get() = getSet<AnxietyLinkMessage>(BOT_ANXIETY_MESSAGES)
 
-    fun addOwnerMessage(anxietyId: String, ownerMessage: OwnerMessage) {
+    fun addAnxietyToMessagesLink(anxietyId: String, inMessage: OwnerMessage, outMessage: BotMessage){
+        addOwnerMessageLink(anxietyId, inMessage)
+        addBotMessageLink(anxietyId, outMessage)
+    }
+
+    fun addOwnerMessageLink(anxietyId: String, ownerMessage: OwnerMessage) {
         ownerMessages[ownerMessage] = anxietyId
     }
 
-    fun addBotMessage(anxietyId: String, ownerMessage: BotMessage) {
-        botMessages.add(AnxietyBoundMessage(ownerMessage, anxietyId))
+    fun addBotMessageLink(anxietyId: String, ownerMessage: BotMessage) {
+        botMessages.add(AnxietyLinkMessage(ownerMessage, anxietyId))
     }
 
     fun getBotMessagesByAnxiety(anxietyId: String): Set<BotMessage> {
@@ -28,13 +34,15 @@ open class AnxietyDBContext(filename: String) : MapDBContext(db(filename)) {
             .toSet()
     }
 
-    fun getAnxietyByOwnerMessage(ownerMessage: OwnerMessage): String? {
+    fun getAnxietyByOwnerMessage(ownerMessage: OwnerMessage): Result<String> {
         return ownerMessages[ownerMessage]
+            .successOrElse(IllegalArgumentException("Unable to find anxiety for $ownerMessage"))
     }
 
-    fun getAnxietyByBotMessage(botMessage: BotMessage): String? {
+    fun getAnxietyByBotMessage(botMessage: BotMessage): Result<String> {
         return botMessages
             .firstOrNull { it.message == botMessage }
             ?.anxietyId
+            .successOrElse(IllegalArgumentException("Unable to find anxiety for $botMessage"))
     }
 }

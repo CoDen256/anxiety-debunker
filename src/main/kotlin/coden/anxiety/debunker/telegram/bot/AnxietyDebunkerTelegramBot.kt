@@ -8,17 +8,12 @@ import coden.anxiety.debunker.telegram.db.BotMessage
 import coden.anxiety.debunker.telegram.db.BotMessage.Companion.asBot
 import coden.anxiety.debunker.telegram.db.OwnerMessage.Companion.asOwner
 import coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
-import coden.anxiety.debunker.telegram.keyboard.KeyboardButton
-import coden.anxiety.debunker.telegram.keyboard.keyboard
 import org.apache.logging.log4j.kotlin.Logging
 import org.telegram.abilitybots.api.bot.AbilityBot
 import org.telegram.abilitybots.api.objects.*
 import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.Update
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 
 
 class AnxietyDebunkerTelegramBot(
@@ -33,236 +28,151 @@ class AnxietyDebunkerTelegramBot(
     override fun creatorId(): Long {
         return config.target
     }
-    override fun start() {
+
+    override fun run() {
         silent.sendMd(config.intro, config.target)
     }
 
-    fun startAbility(): Ability {
-        return Ability
-            .builder()
-            .name("start")
-            .input(0)
-            .action { silent.sendMd(config.intro, config.target) }
-            .locality(Locality.USER)
-            .privacy(Privacy.ADMIN)
-            .build()
+    fun start(): Ability = ability("start") {
+        run()
     }
 
-    fun anxietyStats(): Ability{
-        return Ability
-            .builder()
-            .name("stat")
-            .input(0)
-            .action { displayStats(it.update()) }
-            .locality(Locality.USER)
-            .privacy(Privacy.ADMIN)
-            .build()
-    }
-
-    fun anxiety(): Ability {
-        return Ability
-            .builder()
-            .name("anxiety")
-            .input(0)
-            .action { handleAnxiety(it.update()) }
-            .locality(Locality.USER)
-            .privacy(Privacy.ADMIN)
-            .build()
-    }
-
-    fun displayStats(update: Update) {
+    fun anxietyStats(): Ability = ability("stat") {
         val anxieties = analyser
             .anxieties(ListAnxietiesRequest(AnxietyFilter.MAX_RISK))
-            .onFailure { silent.send(it.message, getChatId(update)) }
-            .getOrNull() ?: return
+            .getOrThrow()
 
-        try {
-            val s = "<pre>${formatter.format(anxieties)}</pre>"
-            val message = SendMessage().apply {
-                text = s
-                enableHtml(true)
-                chatId = getChatId(update).toString()
-            }
-            sender.execute(message)
-        }catch (e:Exception){
-            silent.send("Error: ${e.message}", getChatId(update))
-        }
-
+        val table = formatter.format(anxieties).asCodeSnippet()
+        sender.sendHtml(table, getChatId(it))
     }
 
+    fun onAnxiety(): Reply = replyOn({ justText(it) }) { upd ->
+        silent.send("Gotcha", getChatId(upd))
 
-    fun onAnxiety(): Reply {
-        return Reply.of({ b, u -> handleAnxiety(u) }, { !justText(it) })
+        val description = cleanText(upd)
+
+        val newAnxiety = holder
+            .add(NewAnxietyRequest(description))
+            .getOrThrow()
+
+        // property of the debunked bot. By default all of MAX level
+        assessor
+            .add(NewRiskRequest(RiskLevel.MAX, newAnxiety.id))
+            .getOrThrow()
+
+        val response = formatter.formatAnxiety(
+            newAnxiety.id,
+            newAnxiety.created,
+            newAnxiety.description,
+            AnxietyEntityResolution.UNRESOLVED
+        )
+
+        val ownerMessage = upd.message.asOwner()
+        val botMessage = sender
+            .sendMd(response, getChatId(upd), withNewAnxietyButtons())
+            .asBot()
+        anxietyDb.addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
     }
 
-    fun editAnxiety(): Reply {
-        return Reply.of({b, u ->
-            updateAnxiety(u)}, Flag.EDITED_MESSAGE)
-    }
+    fun onEditedAnxiety(): Reply = replyOn(Flag.EDITED_MESSAGE) { upd ->
+        val anxiety = anxietyDb
+            .getAnxietyByOwnerMessage(upd.editedMessage.asOwner())
+            .getOrThrow()
 
-
-
-    fun resolve(): Reply{
-        return Reply.of({b, u -> handleCallback(u, u.callbackQuery.data)}, Flag.CALLBACK_QUERY)
-    }
-
-    private fun handleCallback(update: Update, data: String){
-        logger.info("Handling callback for $data")
-        when(data){
-            FULFILL.data -> resolve(update, true)
-            UNFULFILL.data -> resolve(update, false)
-            UNRESOLVE.data -> unresolve(update)
-        }
-    }
-
-    private fun unresolve(update: Update){
-        logger.info("Unresolved callback")
-        val target = update.callbackQuery.message.asBot()
-        val anxiety = anxietyDb.getAnxietyByBotMessage(target)
-        if (anxiety == null) {
-            silent.send("Could not find corresponding anxiety for resolution", getChatId(update))
-            return
-        }
-        val result = resolver.unresolve(UnresolveAnxietyRequest(anxiety))
-            .onFailure { silent.send(it.message, getChatId(update)) }
-            .getOrNull() ?: return
-        updateReplyMarkup(target, result.anxietyId, getChatId(update))
-        updateDisplay(target, result.anxietyId, getChatId(update))
-    }
-
-
-    private fun resolve(update: Update, fulfilled: Boolean){
-        logger.info("Resolved callback")
-        val target = update.callbackQuery.message.asBot()
-        val anxiety = anxietyDb.getAnxietyByBotMessage(target)
-        if (anxiety == null) {
-            silent.send("Could not find corresponding anxiety for resolution", getChatId(update))
-            return
-        }
-        val result = resolver.resolve(ResolveAnxietyRequest(anxiety, fulfilled))
-            .onFailure { silent.send(it.message, getChatId(update)) }
-            .getOrNull() ?: return
-        updateReplyMarkup(target, result.anxietyId, getChatId(update))
-        updateDisplay(target, result.anxietyId, getChatId(update))
-    }
-
-
-    private fun updateAnxiety(update: Update) {
-        val anxiety = anxietyDb.getAnxietyByOwnerMessage(update.editedMessage.asOwner())
-        if (anxiety == null) {
-            silent.send("Unable to find corresponding anxiety", getChatId(update))
-            return
-        }
-        val updated = holder.update(UpdateAnxietyRequest(anxiety, update.editedMessage.text))
-            .onFailure { silent.send(it.message, getChatId(update)) }
-            .getOrNull() ?: return
+        val updated = holder
+            .update(UpdateAnxietyRequest(anxiety, upd.editedMessage.text))
+            .getOrThrow()
 
         val targets: Set<BotMessage> = anxietyDb.getBotMessagesByAnxiety(anxiety)
         for (target in targets) {
-            updateDisplay(target, updated.id, getChatId(update))
+            updateAnxietyMessage(target, updated.id, getChatId(upd))
         }
+    }
+
+    fun onCallback(): Reply = replyOnCallback { update, data ->
+        logger.info("Handling callback for $data")
+        when (data) {
+            FULFILL.data -> onResolve(update, true)
+            UNFULFILL.data -> onResolve(update, false)
+            UNRESOLVE.data -> onUnresolve(update)
+        }
+    }
+
+    private fun onUnresolve(update: Update) {
+        val target = update.callbackQuery.message.asBot()
+        val anxiety = anxietyDb
+            .getAnxietyByBotMessage(target)
+            .getOrThrow()
+
+        val result = resolver
+            .unresolve(UnresolveAnxietyRequest(anxiety))
+            .getOrThrow()
+
+        updateReplyMarkup(target, result.anxietyId, getChatId(update))
+        updateAnxietyMessage(target, result.anxietyId, getChatId(update))
+    }
+
+
+    private fun onResolve(update: Update, fulfilled: Boolean) {
+        val target = update.callbackQuery.message.asBot()
+        val anxiety = anxietyDb
+            .getAnxietyByBotMessage(target)
+            .getOrThrow()
+
+        val result = resolver
+            .resolve(ResolveAnxietyRequest(anxiety, fulfilled))
+            .getOrThrow()
+
+        updateReplyMarkup(target, result.anxietyId, getChatId(update))
+        updateAnxietyMessage(target, result.anxietyId, getChatId(update))
     }
 
     private fun updateReplyMarkup(
         target: BotMessage,
-        id: String,
+        anxietyId: String,
         chatId: Long
     ) {
-        try {
-            val anxietyEntity = analyser.anxiety(AnxietyRequest(id))
-                .onFailure { silent.send("Unable to get anxiety entity: ${it.message}", chatId) }
-                .getOrNull() ?: return
+        val anxietyEntity = analyser.anxiety(AnxietyRequest(anxietyId))
+            .getOrThrow()
 
-            val markup = when(anxietyEntity.resolution){
-                AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
-                else -> withResolvedAnxietyButtons()
-            }
-            val edit = EditMessageReplyMarkup()
-            edit.replyMarkup = markup
-            edit.messageId = target.id
-
-            edit.chatId = chatId.toString()
-            sender.execute(edit)
-        } catch (e: Exception) {
-            silent.send("Anxiety could not be updated: ${e.message}", chatId)
+        val markup = when (anxietyEntity.resolution) {
+            AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
+            else -> withResolvedAnxietyButtons()
         }
+        val edit = EditMessageReplyMarkup()
+
+        edit.replyMarkup = markup
+        edit.messageId = target.id
+        edit.chatId = chatId.toString()
+
+        sender.execute(edit)
     }
 
-    private fun updateDisplay(
+    private fun updateAnxietyMessage(
         target: BotMessage,
-        id: String,
+        anxietyId: String,
         chatId: Long
     ) {
-        try {
-            val anxietyEntity = analyser.anxiety(AnxietyRequest(id))
-                .onFailure { silent.send("Unable to get anxiety entity: ${it.message}", chatId) }
-                .getOrNull() ?: return
+        val updatedAnxiety = analyser
+            .anxiety(AnxietyRequest(anxietyId))
+            .getOrThrow()
 
-            val markup = when(anxietyEntity.resolution){
-                AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
-                else -> withResolvedAnxietyButtons()
-            }
-            val edit = EditMessageText()
-            edit.text = formatter.formatAnxiety(
-                anxietyEntity.id,
-                anxietyEntity.created,
-                anxietyEntity.description,
-                anxietyEntity.resolution
-            )
-            edit.replyMarkup = markup
-            edit.messageId = target.id
-            edit.enableMarkdown(true)
-            edit.chatId = chatId.toString()
-            sender.execute(edit)
-        } catch (e: Exception) {
-            silent.send("Anxiety could not be updated: ${e.message}", chatId)
+        val markup = when (updatedAnxiety.resolution) {
+            AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
+            else -> withResolvedAnxietyButtons()
         }
+
+        val message = formatter.formatAnxiety(
+            updatedAnxiety.id,
+            updatedAnxiety.created,
+            updatedAnxiety.description,
+            updatedAnxiety.resolution
+        )
+        sender.editMd(
+            target.id,
+            message,
+            chatId,
+            replyMarkup = markup
+        )
     }
-
-    private fun handleAnxiety(u: Update) {
-        silent.send("Gotcha", getChatId(u))
-
-        val description = cleanText(u)
-
-        val newAnxiety = holder.add(NewAnxietyRequest(description))
-            .onFailure { silent.send("Unable to add new anxiety: ${it.message}", getChatId(u)) }
-            .getOrNull() ?: return
-
-        assessor.add(NewRiskRequest(RiskLevel.MAX, newAnxiety.id))
-
-        try {
-
-            val message = SendMessage().apply {
-                text = formatter.formatAnxiety(newAnxiety.id, newAnxiety.created, newAnxiety.description, AnxietyEntityResolution.UNRESOLVED)
-                chatId = getChatId(u).toString()
-                enableMarkdown(true)
-                replyMarkup = withNewAnxietyButtons()
-            }
-            val ownerMessage = u.message.asOwner()
-            val botMessage = sender.execute(message).asBot()
-            anxietyDb.addOwnerMessage(newAnxiety.id, ownerMessage)
-            anxietyDb.addBotMessage(newAnxiety.id, botMessage)
-        } catch (e: Exception) {
-            silent.send("Error $e", getChatId(u))
-        }
-    }
-
-
-
-
-    fun withNewAnxietyButtons(): InlineKeyboardMarkup {
-        return keyboard {
-            row { b(FULFILL); b(UNFULFILL) }
-        }
-    }
-
-    fun withResolvedAnxietyButtons(): InlineKeyboardMarkup {
-        return keyboard {
-            row { b(UNRESOLVE) }
-        }
-    }
-
-    private val UNRESOLVE = KeyboardButton("↩\uFE0F Unresolve", "UNRESOLVE")
-    private val FULFILL = KeyboardButton("❌ Fucked", "FULLFILL")
-    private val UNFULFILL = KeyboardButton("✅ Fine", "UNFULFILLED")
 }

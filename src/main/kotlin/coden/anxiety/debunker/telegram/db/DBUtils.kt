@@ -15,7 +15,7 @@ fun db(name: String): DB {
 
 }
 
-data class AnxietyBoundMessage(
+data class AnxietyLinkMessage(
     val message: BotMessage,
     val anxietyId: String
 ): Serializable

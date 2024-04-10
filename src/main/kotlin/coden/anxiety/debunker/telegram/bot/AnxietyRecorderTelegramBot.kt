@@ -7,8 +7,9 @@ import coden.anxiety.debunker.telegram.db.BotMessage.Companion.asBot
 import coden.anxiety.debunker.telegram.db.OwnerMessage.Companion.asOwner
 import coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
 import org.telegram.abilitybots.api.bot.AbilityBot
+import org.telegram.abilitybots.api.objects.Ability
+import org.telegram.abilitybots.api.objects.Reply
 import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 
 class AnxietyRecorderTelegramBot(
     private val config: TelegramBotConfig,
@@ -23,50 +24,43 @@ class AnxietyRecorderTelegramBot(
         return config.target
     }
 
-    override fun start() {
+    override fun run() {
         silent.sendMd(config.intro, config.target)
     }
 
-    fun startCmd() = ability("start"){ start() }
+    fun startCmd(): Ability = ability("start"){ run() }
 
 
-    fun anxietyStats() = ability("stat") { upd ->
+    fun anxietyStats():Ability = ability("stat") { upd ->
         val anxieties = analyser
             .anxieties(ListAnxietiesRequest(AnxietyFilter.ALL))
             .getOrThrow()
 
-        val s = "<pre>${formatter.formatShort(anxieties)}</pre>"
-        val message = SendMessage().apply {
-            text = s
-            enableHtml(true)
-            chatId = getChatId(upd).toString()
-        }
-         sender.execute(message)
+        val table = formatter.formatShort(anxieties).asCodeSnippet()
+        sender.sendHtml(table, getChatId(upd))
     }
 
-    fun onAnxiety() = replyOn({ justText(it) }) { upd ->
+
+    fun onAnxiety(): Reply = replyOn({ justText(it) }) { upd ->
         silent.send("Damn it sucks \uD83D\uDE14\nBut I got you!", upd.chatId())
 
         val description = cleanText(upd)
+
         val newAnxiety = holder
             .add(NewAnxietyRequest(description))
             .getOrThrow()
 
-        val message = SendMessage().apply {
-            text = formatter.formatAnxiety(
-                newAnxiety.id,
-                newAnxiety.created,
-                newAnxiety.description,
-                AnxietyEntityResolution.UNRESOLVED
-            )
-            chatId = upd.strChatId()
-            enableMarkdown(true)
-        }
+
+        val response = formatter.formatAnxiety(
+            newAnxiety.id,
+            newAnxiety.created,
+            newAnxiety.description,
+            AnxietyEntityResolution.UNRESOLVED
+        )
 
         val ownerMessage = upd.message.asOwner()
-        val botMessage = sender.execute(message).asBot()
-        anxietyDb.addOwnerMessage(newAnxiety.id, ownerMessage)
-        anxietyDb.addBotMessage(newAnxiety.id, botMessage)
+        val botMessage = sender.sendMd(response, getChatId(upd)).asBot()
+        anxietyDb.addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
     }
 
 }

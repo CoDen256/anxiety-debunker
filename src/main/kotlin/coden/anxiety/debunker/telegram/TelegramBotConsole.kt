@@ -18,7 +18,7 @@ class TelegramBotConsole(
         try {
             for (bot in bots) {
                 api.registerBot(bot)
-                bot.start()
+                bot.run()
                 logger.info("Started ${bot.name()}!")
             }
         }catch (e: TelegramApiException){

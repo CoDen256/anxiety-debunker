@@ -45,7 +45,8 @@ fun main() {
     val analyser = DefaultAnxietyAnalyser(repository)
     val assessor = DefaultAnxietyAssessor(repository)
     val formatter = AnxietyTelegramFormatter()
-    val dbContext = AnxietyDBContext("debunker.db")
+    val debunkerDb = AnxietyDBContext("debunker.db")
+    val recorderDb = AnxietyDBContext("recorder.db")
 
     val debunker = AnxietyDebunkerTelegramBot(
         config.debunker,
@@ -54,7 +55,7 @@ fun main() {
         resolver,
         assessor,
         formatter,
-        dbContext
+        debunkerDb
     )
 
     val recorder = AnxietyRecorderTelegramBot(
@@ -64,7 +65,7 @@ fun main() {
         resolver,
         assessor,
         formatter,
-        dbContext
+        recorderDb
     )
 
     val console = TelegramBotConsole(
