@@ -1,11 +1,11 @@
 package coden.anxiety.debunker.core.persistance
 
 interface AnxietyRepository {
-    fun saveAnxiety(anxiety: NewAnxietyEntity): Result<Unit>
+    fun saveAnxiety(anxiety: AnxietyEntity): Result<Unit>
     fun saveResolution(resolution: Resolution): Result<Unit>
     fun saveRiskAssessment(assessment: RiskAssessment): Result<Unit>
 
-    fun updateAnxiety(anxietyId: String, description: String): Result<NewAnxietyEntity>
+    fun updateAnxiety(anxietyId: String, description: String): Result<AnxietyEntity>
     fun updateResolution(resolution: Resolution): Result<Resolution>
 
     fun deleteAnxiety(anxietyId: String): Result<Unit>
@@ -16,8 +16,8 @@ interface AnxietyRepository {
     fun clearResolutions(): Result<Long>
     fun clearRiskAssessments(): Result<Long>
 
-    fun anxiety(anxietyId: String): Result<Anxiety>
-    fun anxieties(): Result<List<Anxiety>>
+    fun anxiety(anxietyId: String): Result<FullAnxietyEntity>
+    fun anxieties(): Result<List<FullAnxietyEntity>>
 }
 
 class NoSuchAnxietyException(val anxietyId: String, message: String) : Exception(message)

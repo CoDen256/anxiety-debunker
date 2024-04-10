@@ -6,6 +6,6 @@ import java.time.Instant
 data class RiskAssessment(
     val anxietyId: String,
     val risk: RiskLevel,
-    val assessment: Instant = Instant.now(),
+    val assessed: Instant = Instant.now(),
     val id: String = RandomStringUtils.randomAlphabetic(    5)
 )

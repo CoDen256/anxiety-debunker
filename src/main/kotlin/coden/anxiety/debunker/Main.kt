@@ -5,7 +5,9 @@ import coden.anxiety.debunker.core.impl.DefaultAnxietyAssessor
 import coden.anxiety.debunker.core.impl.DefaultAnxietyHolder
 import coden.anxiety.debunker.core.impl.DefaultAnxietyResolver
 import coden.anxiety.debunker.core.persistance.*
-import coden.anxiety.debunker.inmemory.InMemoryAnxietyRepository
+import coden.anxiety.debunker.postgres.AnxietyDatabaseRepository
+import coden.anxiety.debunker.postgres.DatasourceConfig
+import coden.anxiety.debunker.postgres.database
 import coden.anxiety.debunker.telegram.bot.AnxietyDebunkerTelegramBot
 import coden.anxiety.debunker.telegram.formatter.AnxietyTelegramFormatter
 import coden.anxiety.debunker.telegram.TelegramBotConfig
@@ -15,7 +17,8 @@ import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.addFileSource
 
 data class Config(
-    val telegram: TelegramBotConfig
+    val telegram: TelegramBotConfig,
+    val datasource: DatasourceConfig
 )
 
 fun config(): Config{
@@ -27,27 +30,16 @@ fun config(): Config{
 
 fun main() {
     val config = config()
-
-    val repository: AnxietyRepository = InMemoryAnxietyRepository()
-    val a = NewAnxietyEntity("The plane is gonna crash")
-    repository.saveAnxiety(a)
-    val b = NewAnxietyEntity("I have cancer")
-    repository.saveAnxiety(b)
-    val c = NewAnxietyEntity("The car will hit me")
-    repository.saveAnxiety(c)
-    repository.saveAnxiety(NewAnxietyEntity("I will fall out of the window "))
-    repository.saveResolution(Resolution(a.id, true))
-    repository.saveResolution(Resolution(b.id, false))
-    repository.saveRiskAssessment(RiskAssessment(a.id, RiskLevel.MAX))
-    repository.saveRiskAssessment(RiskAssessment(b.id, RiskLevel.MAX))
-    repository.saveRiskAssessment(RiskAssessment(c.id, RiskLevel.MAX))
+    val db = database(config.datasource)
+    val repository: AnxietyRepository = AnxietyDatabaseRepository(db)
+    repository.anxiety("abcde").getOrThrow()
 
     val resolver = DefaultAnxietyResolver(repository)
     val holder = DefaultAnxietyHolder(repository)
     val analyser = DefaultAnxietyAnalyser(repository)
     val assessor = DefaultAnxietyAssessor(repository)
     val formatter = AnxietyTelegramFormatter()
-    val db = AnxietyDebunkerDBContext("debunker.db")
+    val dbContext = AnxietyDebunkerDBContext("debunker.db")
 
     val bot = AnxietyDebunkerTelegramBot(
         config.telegram,
@@ -56,7 +48,7 @@ fun main() {
         resolver,
         assessor,
         formatter,
-        db
+        dbContext
     )
     val console = TelegramBotConsole(bot)
 

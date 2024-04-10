@@ -5,11 +5,11 @@ import coden.utils.success
 
 class InMemoryAnxietyRepository : AnxietyRepository {
 
-    private val anxieties: MutableMap<String, NewAnxietyEntity> = HashMap()
+    private val anxieties: MutableMap<String, AnxietyEntity> = HashMap()
     private val resolutions: MutableMap<String, Resolution> = HashMap()
     private val riskAssessments: MutableMap<String, RiskAssessment> = HashMap()
 
-    override fun saveAnxiety(anxiety: NewAnxietyEntity): Result<Unit> {
+    override fun saveAnxiety(anxiety: AnxietyEntity): Result<Unit> {
         anxieties[anxiety.id] = anxiety
         return Unit.success()
     }
@@ -24,7 +24,7 @@ class InMemoryAnxietyRepository : AnxietyRepository {
         return Unit.success()
     }
 
-    override fun updateAnxiety(anxietyId: String, description: String): Result<NewAnxietyEntity> {
+    override fun updateAnxiety(anxietyId: String, description: String): Result<AnxietyEntity> {
         if (!anxieties.containsKey(anxietyId)) {
             return Result.failure(NoSuchAnxietyException(anxietyId, "No anxiety with id $anxietyId"))
         }
@@ -77,7 +77,7 @@ class InMemoryAnxietyRepository : AnxietyRepository {
         return Result.success(riskAssessments.size.toLong())
     }
 
-    override fun anxiety(anxietyId: String): Result<Anxiety> {
+    override fun anxiety(anxietyId: String): Result<FullAnxietyEntity> {
         if (!anxieties.containsKey(anxietyId)) {
             return Result.failure(NoSuchAnxietyException(anxietyId, "No anxiety with id $anxietyId"))
         }
@@ -86,7 +86,7 @@ class InMemoryAnxietyRepository : AnxietyRepository {
         val assessment = riskAssessments.map { it.value }.filter { it.anxietyId == anxietyId }
 
         return Result.success(
-            Anxiety(
+            FullAnxietyEntity(
                 anxiety.id,
                 anxiety.description,
                 anxiety.created,
@@ -96,7 +96,7 @@ class InMemoryAnxietyRepository : AnxietyRepository {
         )
     }
 
-    override fun anxieties(): Result<List<Anxiety>> {
+    override fun anxieties(): Result<List<FullAnxietyEntity>> {
         return Result.success(anxieties.map {
             anxiety(it.key).getOrThrow()
         })

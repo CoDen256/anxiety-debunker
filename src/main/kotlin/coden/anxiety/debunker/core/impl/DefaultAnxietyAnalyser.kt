@@ -2,7 +2,7 @@ package coden.anxiety.debunker.core.impl
 
 import coden.anxiety.debunker.core.api.*
 import coden.anxiety.debunker.core.persistance.AnxietyRepository
-import coden.anxiety.debunker.core.persistance.Anxiety
+import coden.anxiety.debunker.core.persistance.FullAnxietyEntity
 import coden.anxiety.debunker.core.persistance.Resolution
 import coden.utils.logInteraction
 import org.apache.logging.log4j.kotlin.Logging
@@ -33,7 +33,7 @@ class DefaultAnxietyAnalyser
             .logInteraction(logger, "Requesting all anxieties")
     }
 
-    private fun mapAnxietyToEntityResponse(anxiety: Anxiety): AnxietyEntityResponse {
+    private fun mapAnxietyToEntityResponse(anxiety: FullAnxietyEntity): AnxietyEntityResponse {
         return AnxietyEntityResponse(
             anxiety.id,
             anxiety.description,
