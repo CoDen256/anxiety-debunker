@@ -31,11 +31,6 @@ class AnxietyDebunkerTelegramBot(
     private val sender: TelegramClient,
 ) : AbilityBot(sender, config.username, anxietyDb), StartableLongPollingBot, Logging {
 
-    init {
-        onRegister()
-    }
-
-
 
     override fun creatorId(): Long {
         return config.target

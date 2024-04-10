@@ -40,6 +40,7 @@ class TelegramBotConsole(
         try {
             for (bot in bots) {
                 api.registerBot(bot.token(), { TelegramUrl.DEFAULT_URL}, generator, bot)
+                bot.onRegister()
                 bot.run()
                 logger.info("Started ${bot.name()}!")
             }

@@ -7,4 +7,5 @@ interface StartableLongPollingBot: LongPollingUpdateConsumer {
     fun name(): String { return this.javaClass.simpleName }
     fun run()
     fun token(): String
+    fun onRegister()
 }
