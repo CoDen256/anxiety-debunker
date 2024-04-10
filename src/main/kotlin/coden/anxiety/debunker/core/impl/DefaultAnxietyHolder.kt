@@ -3,6 +3,7 @@ package coden.anxiety.debunker.core.impl
 import coden.anxiety.debunker.core.api.*
 import coden.anxiety.debunker.core.persistance.AnxietyEntity
 import coden.anxiety.debunker.core.persistance.AnxietyRepository
+import coden.utils.flatMap
 import coden.utils.logInteraction
 import org.apache.logging.log4j.kotlin.Logging
 
@@ -22,8 +23,7 @@ class DefaultAnxietyHolder(
     override fun delete(request: DeleteAnxietyRequest): Result<DeleteAnxietyResponse> {
         logger.info("Removing anxiety(${request.id})...")
 
-        return repository
-            .deleteAnxiety(request.id)
+        return repository.deleteAnxiety(request.id)
             .map { DeleteAnxietyResponse(request.id) }
             .logInteraction(logger, "Removing anxiety(${request.id})")
     }

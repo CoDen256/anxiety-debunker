@@ -66,6 +66,8 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
     }
 
     override fun deleteAnxiety(anxietyId: String): Result<Unit> = transaction {
+        Resolutions.deleteWhere { Resolutions.anxietyId eq anxietyId }
+        RiskAssessments.deleteWhere { RiskAssessments.anxietyId eq anxietyId }
         Anxieties.deleteWhere { id eq anxietyId }
     }
 

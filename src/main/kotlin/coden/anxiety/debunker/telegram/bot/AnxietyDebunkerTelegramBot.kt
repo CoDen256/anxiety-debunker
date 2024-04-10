@@ -15,6 +15,7 @@ import org.telegram.telegrambots.abilitybots.api.objects.Flag
 import org.telegram.telegrambots.abilitybots.api.objects.Reply
 import org.telegram.telegrambots.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.objects.Update
+import org.telegram.telegrambots.meta.api.objects.business.BusinessMessagesDeleted
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.generics.TelegramClient
 
@@ -33,6 +34,8 @@ class AnxietyDebunkerTelegramBot(
     init {
         onRegister()
     }
+
+
 
     override fun creatorId(): Long {
         return config.target
@@ -73,13 +76,13 @@ class AnxietyDebunkerTelegramBot(
         val owner = anxietyDb.getOwnerMessageByAnxiety(anxietyId).getOrNull()
         val replyMarkup = markupFromResolution(anxiety.resolution)
         val botMessage = sender
-            .sendMd(response, getChatId(upd), replyMarkup, replyTo = owner?.id)
+            .sendMd(response, upd.chatId(), replyMarkup, replyTo = owner?.id)
             .asBot()
         anxietyDb.addBotMessageLink(anxietyId, botMessage)
     }
 
     fun onAnxiety(): Reply = replyOn({ justText(it) }) { upd ->
-        silent.send("Gotcha", getChatId(upd))
+        silent.send("Gotcha", upd.chatId())
 
         val description = cleanText(upd)
 
@@ -102,7 +105,7 @@ class AnxietyDebunkerTelegramBot(
         val ownerMessage = upd.message.asOwner()
         val replyMarkup = withNewAnxietyButtons()
         val botMessage = sender
-            .sendMd(response, getChatId(upd), replyMarkup)
+            .sendMd(response, upd.chatId(), replyMarkup)
             .asBot()
         anxietyDb.addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
     }
@@ -116,7 +119,7 @@ class AnxietyDebunkerTelegramBot(
             .update(UpdateAnxietyRequest(anxiety, upd.editedMessage.text))
             .getOrThrow()
 
-        syncAnxietyMessages(updated.id, getChatId(upd))
+        syncAnxietyMessages(updated.id, upd.chatId())
     }
 
     fun onDeletedAnxiety(): Reply = replyOnReaction("\uD83D\uDC4E"){upd ->
@@ -125,7 +128,7 @@ class AnxietyDebunkerTelegramBot(
             .getOrThrow()
 
         val deleted = holder.delete(DeleteAnxietyRequest(anxietyId)).getOrThrow()
-        syncAnxietyMessages(deleted.id, getChatId(upd))
+        syncAnxietyMessages(deleted.id, upd.chatId())
     }
 
     fun onCallback(): Reply = replyOnCallback { update, data ->
@@ -217,5 +220,13 @@ class AnxietyDebunkerTelegramBot(
                 replyMarkup = null
             )
         }
+    }
+
+    override fun consume(update: Update?) {
+        // library does not see a valid user on reactions
+        // hack to force library to think it has a valid user, but supplying fake info
+        // it'll return EMPTY_USER
+        update?.deletedBusinessMessages = BusinessMessagesDeleted()
+        super.consume(update)
     }
 }

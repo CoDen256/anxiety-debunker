@@ -17,7 +17,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
         for (anxiety in response.anxieties.sortedBy { it.created }){
             val created = short.format(anxiety.created.atZone(ZoneId.of("CET")))
             val res = formatResolution(anxiety.resolution)
-            table.addRow("$res $created", anxiety.id, anxiety.description.take(15))
+            table.addRow("$res $created","#${anxiety.id}", anxiety.description.take(15))
         }
         return table.toString()
     }
@@ -25,7 +25,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
     override fun formatShort(response: AnxietyListResponse): String {
         val table = PrettyTable( "id", "anxiety")
         for (anxiety in response.anxieties.sortedBy { it.created }){
-            table.addRow(anxiety.id, anxiety.description.take(30).padEnd(30,' '))
+            table.addRow("#${anxiety.id}", anxiety.description.take(30).padEnd(30,' '))
         }
         return table.toString()
     }

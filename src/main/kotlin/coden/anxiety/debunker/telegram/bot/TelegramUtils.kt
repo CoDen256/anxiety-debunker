@@ -1,6 +1,7 @@
 package coden.anxiety.debunker.telegram.bot
 
 import coden.utils.successOrElse
+import org.apache.logging.log4j.kotlin.logger
 import org.telegram.telegrambots.abilitybots.api.bot.BaseAbilityBot
 import org.telegram.telegrambots.abilitybots.api.objects.*
 import org.telegram.telegrambots.abilitybots.api.util.AbilityUtils.getChatId
@@ -17,24 +18,31 @@ import java.util.function.Predicate
 
 
 fun replyOn(filter: (Update) -> Boolean, handle: (Update) -> Unit): Reply {
-    return Reply.of({bot, u ->
+    return Reply.of({ bot, u ->
         tryHandle(handle, u, bot)
     }, filter)
 }
 
 fun replyOn(filter: Predicate<Update>, handle: (Update) -> Unit): Reply {
-    return replyOn({filter.test(it)}, handle)
+    return replyOn({ filter.test(it) }, handle)
 }
 
 fun replyOnReaction(vararg emojis: String, handle: (Update) -> Unit): Reply {
-    return replyOn({
-        upd ->
+    return replyOn({ upd ->
         !upd.messageReaction?.newReaction.isNullOrEmpty()
-            && upd.messageReaction
+                && upd.messageReaction
+            .newReaction
+            .filterIsInstance<ReactionTypeEmoji>()
+            .any { emojis.contains(it.emoji) }
+    }, {
+        logger("replyOnReaction").info("Handling emojis ${
+            it.messageReaction
                 .newReaction
                 .filterIsInstance<ReactionTypeEmoji>()
-                .any { emojis.contains(it.emoji) }
-                   }, handle)
+                .map { it.emoji }}")
+        println()
+        handle(it)
+    })
 }
 
 fun tryHandle(
@@ -59,14 +67,20 @@ fun ability(cmd: String, handle: (Update) -> Unit): Ability {
         .build()
 }
 
-fun replyOnCallback(handle: (Update, String) -> Unit): Reply = replyOn(Flag.CALLBACK_QUERY){
+fun replyOnCallback(handle: (Update, String) -> Unit): Reply = replyOn(Flag.CALLBACK_QUERY) {
     handle(it, it.callbackQuery.data)
 }
 
-fun Update.chatId(): Long = getChatId(this)
+fun Update.chatId(): Long =
+    if (this.messageReaction != null) {
+        messageReaction.chat.id
+    } else {
+        getChatId(this)
+    }
+
 fun Update.strChatId(): String = chatId().toString()
 
-fun TelegramClient.sendHtml(text: String, chatId: Long, replyMarkup: ReplyKeyboard?=null): Message {
+fun TelegramClient.sendHtml(text: String, chatId: Long, replyMarkup: ReplyKeyboard? = null): Message {
     val message = SendMessage.builder().apply {
         parseMode("html")
         text(text)
@@ -76,24 +90,28 @@ fun TelegramClient.sendHtml(text: String, chatId: Long, replyMarkup: ReplyKeyboa
     return execute(message)
 }
 
-fun TelegramClient.sendMd(text: String,
-                         chatId: Long,
-                         replyMarkup: ReplyKeyboard?=null,
-                         replyTo: Int?=null): Message {
+fun TelegramClient.sendMd(
+    text: String,
+    chatId: Long,
+    replyMarkup: ReplyKeyboard? = null,
+    replyTo: Int? = null
+): Message {
     val message = SendMessage.builder().apply {
         parseMode("Markdown")
-        text( text)
-        chatId( chatId.toString())
-        replyToMessageId( replyTo)
-        replyMarkup( replyMarkup)
+        text(text)
+        chatId(chatId.toString())
+        replyToMessageId(replyTo)
+        replyMarkup(replyMarkup)
     }.build()
     return execute(message)
 }
 
-fun TelegramClient.editMdRequest(text: String,
-                                chatId: Long,
-                                replyMarkup: InlineKeyboardMarkup?=null,
-                                messageId: Int?=null): EditMessageTextBuilder<*, *> {
+fun TelegramClient.editMdRequest(
+    text: String,
+    chatId: Long,
+    replyMarkup: InlineKeyboardMarkup? = null,
+    messageId: Int? = null
+): EditMessageTextBuilder<*, *> {
     return EditMessageText.builder().apply {
         parseMode("Markdown")
         messageId(messageId)
@@ -104,8 +122,8 @@ fun TelegramClient.editMdRequest(text: String,
     }
 }
 
-fun TelegramClient.editMd(messageId: Int, text: String, chatId: Long, replyMarkup: InlineKeyboardMarkup?=null) {
-    val request = editMdRequest(text=text, chatId, replyMarkup, messageId ).build()
+fun TelegramClient.editMd(messageId: Int, text: String, chatId: Long, replyMarkup: InlineKeyboardMarkup? = null) {
+    val request = editMdRequest(text = text, chatId, replyMarkup, messageId).build()
     execute(request)
 }
 
@@ -118,7 +136,7 @@ fun justText(update: Update): Boolean {
 fun isCommand(update: Update) = update.message.text.startsWith("/")
 fun isId(update: Update) = update.message.text.startsWith("#")
 
-fun getId(update: Update): Result<String>{
+fun getId(update: Update): Result<String> {
     if (!isId(update)) return Result.failure(IllegalArgumentException("${update.message.text} does not represent an id"))
 
     return update.message.text
@@ -133,7 +151,7 @@ fun cleanText(u: Update): String {
 }
 
 fun cleanText(message: Message): String {
-    if (message.text.startsWith("/")){
+    if (message.text.startsWith("/")) {
         if (!message.text.contains(" ")) return ""
         return message.text.split(" ", limit = 2)[1]
     }
