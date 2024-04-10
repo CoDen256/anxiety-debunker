@@ -1,19 +1,33 @@
 package coden.anxiety.debunker.telegram.bot
 
-import coden.utils.success
 import coden.utils.successOrElse
 import org.telegram.abilitybots.api.bot.BaseAbilityBot
 import org.telegram.abilitybots.api.objects.*
 import org.telegram.abilitybots.api.sender.MessageSender
 import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
+import org.telegram.telegrambots.bots.DefaultBotOptions
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText.EditMessageTextBuilder
 import org.telegram.telegrambots.meta.api.objects.Message
 import org.telegram.telegrambots.meta.api.objects.Update
+import org.telegram.telegrambots.meta.api.objects.reactions.ReactionTypeEmoji
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard
 import java.util.function.Predicate
+
+fun options(allowedUpdates: List<String> = listOf(
+    "message_reaction",
+    "update_id",
+    "edited_message",
+    "message",
+    "callback_query",
+    "chosen_inline_result",
+    "inline_query"
+)): DefaultBotOptions {
+    return DefaultBotOptions()
+        .apply { this.allowedUpdates = allowedUpdates}
+}
 
 fun replyOn(filter: (Update) -> Boolean, handle: (Update) -> Unit): Reply {
     return Reply.of({bot, u ->
@@ -23,6 +37,17 @@ fun replyOn(filter: (Update) -> Boolean, handle: (Update) -> Unit): Reply {
 
 fun replyOn(filter: Predicate<Update>, handle: (Update) -> Unit): Reply {
     return replyOn({filter.test(it)}, handle)
+}
+
+fun replyOnReaction(vararg emojis: String, handle: (Update) -> Unit): Reply {
+    return replyOn({
+        upd ->
+        !upd.messageReaction?.newReaction.isNullOrEmpty()
+            && upd.messageReaction
+                .newReaction
+                .filterIsInstance<ReactionTypeEmoji>()
+                .any { emojis.contains(it.emoji) }
+                   }, handle)
 }
 
 fun tryHandle(
@@ -78,18 +103,22 @@ fun MessageSender.sendMd(text: String,
     return execute(message)
 }
 
-fun MessageSender.editMdRequest(text: String, chatId: Long, replyMarkup: InlineKeyboardMarkup?=null, messageId: Int?=null): EditMessageTextBuilder {
+fun MessageSender.editMdRequest(text: String,
+                                chatId: Long,
+                                replyMarkup: InlineKeyboardMarkup?=null,
+                                messageId: Int?=null): EditMessageTextBuilder {
     return EditMessageText.builder().apply {
         parseMode("Markdown")
         messageId(messageId)
         text(text)
         chatId(chatId.toString())
         replyMarkup(replyMarkup)
+
     }
 }
 
 fun MessageSender.editMd(messageId: Int, text: String, chatId: Long, replyMarkup: InlineKeyboardMarkup?=null) {
-    val request = editMdRequest(text=text, chatId, replyMarkup, messageId).build()
+    val request = editMdRequest(text=text, chatId, replyMarkup, messageId ).build()
     execute(request)
 }
 

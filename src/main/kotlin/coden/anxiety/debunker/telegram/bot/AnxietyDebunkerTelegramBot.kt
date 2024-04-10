@@ -13,6 +13,7 @@ import org.telegram.abilitybots.api.bot.AbilityBot
 import org.telegram.abilitybots.api.objects.*
 import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.objects.Update
+import java.util.stream.Stream
 
 
 class AnxietyDebunkerTelegramBot(
@@ -23,7 +24,7 @@ class AnxietyDebunkerTelegramBot(
     private val assessor: AnxietyAssessor,
     private val formatter: AnxietyFormatter,
     private val anxietyDb: AnxietyDBContext,
-) : AbilityBot(config.token, config.username, anxietyDb), StartableLongPollingBot, Logging {
+) : AbilityBot(config.token, config.username, anxietyDb, options()), StartableLongPollingBot, Logging {
     override fun creatorId(): Long {
         return config.target
     }
@@ -102,7 +103,16 @@ class AnxietyDebunkerTelegramBot(
             .update(UpdateAnxietyRequest(anxiety, upd.editedMessage.text))
             .getOrThrow()
 
-        syncAnxietyMessages(updated.id, upd)
+        syncAnxietyMessages(updated.id, getChatId(upd))
+    }
+
+    fun onDeletedAnxiety(): Reply = replyOnReaction("\uD83D\uDC4E"){upd ->
+        val anxietyId = anxietyDb
+            .getAnxietyByBotMessage(upd.messageReaction.messageId.asBot())
+            .getOrThrow()
+
+        val deleted = holder.delete(DeleteAnxietyRequest(anxietyId)).getOrThrow()
+        syncAnxietyMessages(deleted.id, getChatId(upd))
     }
 
     fun onCallback(): Reply = replyOnCallback { update, data ->
@@ -112,7 +122,6 @@ class AnxietyDebunkerTelegramBot(
             UNFULFILL.data -> onResolve(update, false)
             UNRESOLVE.data -> onUnresolve(update)
         }
-
     }
 
     private fun onUnresolve(update: Update) {
@@ -125,7 +134,7 @@ class AnxietyDebunkerTelegramBot(
             .unresolve(UnresolveAnxietyRequest(anxiety))
             .getOrThrow()
 
-        syncAnxietyMessages(result.anxietyId, update)
+        syncAnxietyMessages(result.anxietyId, getChatId(update))
     }
 
     private fun onResolve(update: Update, fulfilled: Boolean) {
@@ -138,19 +147,22 @@ class AnxietyDebunkerTelegramBot(
             .resolve(ResolveAnxietyRequest(anxiety, fulfilled))
             .getOrThrow()
 
-        syncAnxietyMessages(result.anxietyId, update)
+        syncAnxietyMessages(result.anxietyId, getChatId(update))
     }
 
 
     private fun syncAnxietyMessages(
         anxietyId: String,
-        upd: Update
+        chatId: Long,
     ) {
         val targets: Set<BotMessage> = anxietyDb.getBotMessagesByAnxiety(anxietyId)
 
         val updatedAnxiety = analyser
             .anxiety(AnxietyRequest(anxietyId))
-            .getOrThrow()
+            .getOrNull()
+            ?: return markDeleted(anxietyId, chatId, targets)
+
+
 
         val markup = when (updatedAnxiety.resolution) {
             AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
@@ -166,12 +178,25 @@ class AnxietyDebunkerTelegramBot(
 
         val editBuilder = sender.editMdRequest(
             message,
-            getChatId(upd),
-            replyMarkup = markup
+            chatId,
+            replyMarkup = markup,
         )
 
         for (target in targets.sortedByDescending { it.id }) {
             sender.execute(editBuilder.messageId(target.id).build())
+        }
+    }
+
+    private fun markDeleted(anxietyId: String,
+                            chatId: Long,
+                            targets: Set<BotMessage>){
+        for (target in targets.sortedByDescending { it.id }) {
+            sender.editMd(
+                target.id,
+                formatter.formatDeletedAnxiety(anxietyId),
+                chatId,
+                replyMarkup = null
+            )
         }
     }
 }

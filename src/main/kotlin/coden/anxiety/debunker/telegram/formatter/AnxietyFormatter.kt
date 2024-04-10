@@ -9,4 +9,5 @@ interface AnxietyFormatter {
     fun formatShort(response: AnxietyListResponse): String
     fun formatResolution(resolution: AnxietyEntityResolution): String
     fun formatAnxiety(id: String, created: Instant, description: String, resolution: AnxietyEntityResolution): String
+    fun formatDeletedAnxiety(id: String): String
 }

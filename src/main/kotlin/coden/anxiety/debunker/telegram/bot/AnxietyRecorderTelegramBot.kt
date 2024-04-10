@@ -19,7 +19,8 @@ class AnxietyRecorderTelegramBot(
     private val assessor: AnxietyAssessor,
     private val formatter: AnxietyFormatter,
     private val anxietyDb: AnxietyDBContext,
-) : AbilityBot(config.token, config.username, anxietyDb), StartableLongPollingBot {
+) : AbilityBot(config.token, config.username, anxietyDb, options()),
+    StartableLongPollingBot {
     override fun creatorId(): Long {
         return config.target
     }
