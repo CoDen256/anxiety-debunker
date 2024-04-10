@@ -14,7 +14,8 @@ data class KeyboardLine(
 
 open class KeyboardButton(
     val text: String,
-    val data: String=text
+    val data: String?=null,
+    val switch: String?=null
 )
 
 class KeyboardLineBuilder{
@@ -65,6 +66,7 @@ fun Keyboard.asReplyKeyboard(): InlineKeyboardMarkup {
         for (button in line.buttons){
             val b = InlineKeyboardButton()
             b.text = button.text
+            b.switchInlineQueryCurrentChat = button.switch
             b.callbackData = button.data
             inlineButtons.add(b)
         }

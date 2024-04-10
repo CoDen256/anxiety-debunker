@@ -1,11 +1,14 @@
 package coden.anxiety.debunker.telegram.bot
 
+import coden.utils.success
+import coden.utils.successOrElse
 import org.telegram.abilitybots.api.bot.BaseAbilityBot
 import org.telegram.abilitybots.api.objects.*
 import org.telegram.abilitybots.api.sender.MessageSender
 import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText.EditMessageTextBuilder
 import org.telegram.telegrambots.meta.api.objects.Message
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
@@ -30,7 +33,7 @@ fun tryHandle(
     try {
         handle(u)
     } catch (e: Exception) {
-        bot.silent().send("⚠ ${e.message}", u.chatId())
+        bot.silent().send("⚠ ${e.message}: \n$e", u.chatId())
     }
 }
 
@@ -61,31 +64,52 @@ fun MessageSender.sendHtml(text: String, chatId: Long, replyMarkup: ReplyKeyboar
     return execute(message)
 }
 
-fun MessageSender.sendMd(text: String, chatId: Long, replyMarkup: ReplyKeyboard?=null): Message {
+fun MessageSender.sendMd(text: String,
+                         chatId: Long,
+                         replyMarkup: ReplyKeyboard?=null,
+                         replyTo: Int?=null): Message {
     val message = SendMessage().apply {
         enableMarkdown(true)
         this.text = text
         this.chatId = chatId.toString()
+        this.replyToMessageId = replyTo
         this.replyMarkup = replyMarkup
     }
     return execute(message)
 }
 
-fun MessageSender.editMd(messageId: Int, text: String, chatId: Long, replyMarkup: InlineKeyboardMarkup?=null) {
-    val message = EditMessageText().apply {
-        enableMarkdown(true)
-        this.messageId = messageId
-        this.text = text
-        this.chatId = chatId.toString()
-        this.replyMarkup = replyMarkup
+fun MessageSender.editMdRequest(text: String, chatId: Long, replyMarkup: InlineKeyboardMarkup?=null, messageId: Int?=null): EditMessageTextBuilder {
+    return EditMessageText.builder().apply {
+        parseMode("Markdown")
+        messageId(messageId)
+        text(text)
+        chatId(chatId.toString())
+        replyMarkup(replyMarkup)
     }
-    execute(message)
+}
+
+fun MessageSender.editMd(messageId: Int, text: String, chatId: Long, replyMarkup: InlineKeyboardMarkup?=null) {
+    val request = editMdRequest(text=text, chatId, replyMarkup, messageId).build()
+    execute(request)
 }
 
 fun String.asCodeSnippet() = "<pre>$this</pre>"
 
 fun justText(update: Update): Boolean {
-    return Flag.TEXT.test(update) && !update.message.text.startsWith("/")
+    return Flag.TEXT.test(update) && !isCommand(update) && !isId(update)
+}
+
+fun isCommand(update: Update) = update.message.text.startsWith("/")
+fun isId(update: Update) = update.message.text.startsWith("#")
+
+fun getId(update: Update): Result<String>{
+    if (!isId(update)) return Result.failure(IllegalArgumentException("${update.message.text} does not represent an id"))
+
+    return update.message.text
+        .split(" ")
+        .firstOrNull()
+        ?.drop(1)
+        .successOrElse(IllegalArgumentException("Cannot parse ${update.message.text} as id"))
 }
 
 fun cleanText(u: Update): String {

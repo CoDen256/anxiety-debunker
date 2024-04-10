@@ -1,7 +1,6 @@
 package coden.anxiety.debunker.telegram.formatter
 
 import coden.anxiety.debunker.core.api.AnxietyEntityResolution
-import coden.anxiety.debunker.core.api.AnxietyEntityResponse
 import coden.anxiety.debunker.core.api.AnxietyListResponse
 import org.sk.PrettyTable
 import java.time.Instant
@@ -26,7 +25,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
     override fun formatShort(response: AnxietyListResponse): String {
         val table = PrettyTable( "id", "anxiety")
         for (anxiety in response.anxieties.sortedBy { it.created }){
-            table.addRow(anxiety.id, anxiety.description.take(15))
+            table.addRow(anxiety.id, anxiety.description.take(30).padEnd(30,' '))
         }
         return table.toString()
     }

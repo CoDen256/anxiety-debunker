@@ -1,5 +1,6 @@
 package coden.anxiety.debunker.telegram.db
 
+import coden.utils.success
 import coden.utils.successOrElse
 import org.telegram.abilitybots.api.db.MapDBContext
 
@@ -25,6 +26,14 @@ open class AnxietyDBContext(filename: String) : MapDBContext(db(filename)) {
 
     fun addBotMessageLink(anxietyId: String, ownerMessage: BotMessage) {
         botMessages.add(AnxietyLinkMessage(ownerMessage, anxietyId))
+    }
+
+    fun getOwnerMessageByAnxiety(anxietyId: String): Result<OwnerMessage> {
+        return ownerMessages
+            .filterValues { it == anxietyId }
+            .maxByOrNull { it.key.id }
+            .successOrElse(IllegalArgumentException("No owner message for this anxiety $anxietyId"))
+            .map { it.key }
     }
 
     fun getBotMessagesByAnxiety(anxietyId: String): Set<BotMessage> {

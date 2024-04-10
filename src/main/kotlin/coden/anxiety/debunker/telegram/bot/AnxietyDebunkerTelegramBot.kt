@@ -12,7 +12,6 @@ import org.apache.logging.log4j.kotlin.Logging
 import org.telegram.abilitybots.api.bot.AbilityBot
 import org.telegram.abilitybots.api.objects.*
 import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup
 import org.telegram.telegrambots.meta.api.objects.Update
 
 
@@ -46,6 +45,25 @@ class AnxietyDebunkerTelegramBot(
         sender.sendHtml(table, getChatId(it))
     }
 
+    fun onAnxietyId() = replyOn({ isId(it)}){ upd ->
+        val anxietyId = getId(upd).getOrThrow()
+
+        val anxiety = analyser.anxiety(AnxietyRequest(anxietyId)).getOrThrow()
+        val response = formatter.formatAnxiety(
+            anxiety.id,
+            anxiety.created,
+            anxiety.description,
+            anxiety.resolution
+        )
+
+        val owner = anxietyDb.getOwnerMessageByAnxiety(anxietyId).getOrNull()
+        val replyMarkup = withNewAnxietyButtons()
+        val botMessage = sender
+            .sendMd(response, getChatId(upd), replyMarkup, replyTo = owner?.id)
+            .asBot()
+        anxietyDb.addBotMessageLink(anxietyId, botMessage)
+    }
+
     fun onAnxiety(): Reply = replyOn({ justText(it) }) { upd ->
         silent.send("Gotcha", getChatId(upd))
 
@@ -68,8 +86,9 @@ class AnxietyDebunkerTelegramBot(
         )
 
         val ownerMessage = upd.message.asOwner()
+        val replyMarkup = withNewAnxietyButtons()
         val botMessage = sender
-            .sendMd(response, getChatId(upd), withNewAnxietyButtons())
+            .sendMd(response, getChatId(upd), replyMarkup)
             .asBot()
         anxietyDb.addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
     }
@@ -83,10 +102,7 @@ class AnxietyDebunkerTelegramBot(
             .update(UpdateAnxietyRequest(anxiety, upd.editedMessage.text))
             .getOrThrow()
 
-        val targets: Set<BotMessage> = anxietyDb.getBotMessagesByAnxiety(anxiety)
-        for (target in targets) {
-            updateAnxietyMessage(target, updated.id, getChatId(upd))
-        }
+        syncAnxietyMessages(updated.id, upd)
     }
 
     fun onCallback(): Reply = replyOnCallback { update, data ->
@@ -96,6 +112,7 @@ class AnxietyDebunkerTelegramBot(
             UNFULFILL.data -> onResolve(update, false)
             UNRESOLVE.data -> onUnresolve(update)
         }
+
     }
 
     private fun onUnresolve(update: Update) {
@@ -108,10 +125,8 @@ class AnxietyDebunkerTelegramBot(
             .unresolve(UnresolveAnxietyRequest(anxiety))
             .getOrThrow()
 
-        updateReplyMarkup(target, result.anxietyId, getChatId(update))
-        updateAnxietyMessage(target, result.anxietyId, getChatId(update))
+        syncAnxietyMessages(result.anxietyId, update)
     }
-
 
     private fun onResolve(update: Update, fulfilled: Boolean) {
         val target = update.callbackQuery.message.asBot()
@@ -123,36 +138,16 @@ class AnxietyDebunkerTelegramBot(
             .resolve(ResolveAnxietyRequest(anxiety, fulfilled))
             .getOrThrow()
 
-        updateReplyMarkup(target, result.anxietyId, getChatId(update))
-        updateAnxietyMessage(target, result.anxietyId, getChatId(update))
+        syncAnxietyMessages(result.anxietyId, update)
     }
 
-    private fun updateReplyMarkup(
-        target: BotMessage,
+
+    private fun syncAnxietyMessages(
         anxietyId: String,
-        chatId: Long
+        upd: Update
     ) {
-        val anxietyEntity = analyser.anxiety(AnxietyRequest(anxietyId))
-            .getOrThrow()
+        val targets: Set<BotMessage> = anxietyDb.getBotMessagesByAnxiety(anxietyId)
 
-        val markup = when (anxietyEntity.resolution) {
-            AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
-            else -> withResolvedAnxietyButtons()
-        }
-        val edit = EditMessageReplyMarkup()
-
-        edit.replyMarkup = markup
-        edit.messageId = target.id
-        edit.chatId = chatId.toString()
-
-        sender.execute(edit)
-    }
-
-    private fun updateAnxietyMessage(
-        target: BotMessage,
-        anxietyId: String,
-        chatId: Long
-    ) {
         val updatedAnxiety = analyser
             .anxiety(AnxietyRequest(anxietyId))
             .getOrThrow()
@@ -168,11 +163,15 @@ class AnxietyDebunkerTelegramBot(
             updatedAnxiety.description,
             updatedAnxiety.resolution
         )
-        sender.editMd(
-            target.id,
+
+        val editBuilder = sender.editMdRequest(
             message,
-            chatId,
+            getChatId(upd),
             replyMarkup = markup
         )
+
+        for (target in targets.sortedByDescending { it.id }) {
+            sender.execute(editBuilder.messageId(target.id).build())
+        }
     }
 }

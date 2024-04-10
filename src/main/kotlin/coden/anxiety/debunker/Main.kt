@@ -69,7 +69,7 @@ fun main() {
     )
 
     val console = TelegramBotConsole(
-//        debunker,
+        debunker,
         recorder
     )
 
