@@ -107,17 +107,6 @@
     </build>
 
     <dependencies>
-        <!-- https://mvnrepository.com/artifact/io.ebean/ebean -->
-        <dependency>
-            <groupId>io.ebean</groupId>
-            <artifactId>ebean-postgres</artifactId>
-            <version>15.1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>io.ebean</groupId>
-            <artifactId>ebean-datasource</artifactId>
-            <version>8.13</version>
-        </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -126,6 +115,21 @@
         <dependency>
             <groupId>org.jetbrains.exposed</groupId>
             <artifactId>exposed-dao</artifactId>
+            <version>0.49.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.exposed</groupId>
+            <artifactId>exposed-jdbc</artifactId>
+            <version>0.49.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.exposed</groupId>
+            <artifactId>exposed-core</artifactId>
+            <version>0.49.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.exposed</groupId>
+            <artifactId>exposed-kotlin-datetime</artifactId>
             <version>0.49.0</version>
         </dependency>
         <dependency>
