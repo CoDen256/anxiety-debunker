@@ -40,6 +40,10 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
         return "*Anxiety* #${id} - `❌REMOVED`"
     }
 
+    override fun formatUpdatedAnxiety(id: String): String {
+        return "#${id} - ✅ Successfuly updated"
+    }
+
     override fun formatResolution(resolution: AnxietyEntityResolution): String{
         return when(resolution){
             AnxietyEntityResolution.UNRESOLVED -> "\uD83D\uDD18"

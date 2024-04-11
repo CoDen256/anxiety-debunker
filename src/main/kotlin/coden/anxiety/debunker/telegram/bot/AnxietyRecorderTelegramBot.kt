@@ -22,7 +22,7 @@ class AnxietyRecorderTelegramBot(
     private val anxietyDb: AnxietyDBContext,
     private val sender: TelegramClient,
     ) : AbilityBot(sender, config.username, anxietyDb),
-    StartableLongPollingBot {
+    RunnableLongPollingBot {
     override fun creatorId(): Long {
         return config.target
     }

@@ -1,7 +1,11 @@
 package coden.utils
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.asCoroutineDispatcher
 import org.apache.logging.log4j.kotlin.KotlinLogger
+import java.util.concurrent.Executors
 
+val singleThreadScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher())
 
 fun <T> Result<T>.logInteraction(logger: KotlinLogger, operation: String): Result<T> {
     return this

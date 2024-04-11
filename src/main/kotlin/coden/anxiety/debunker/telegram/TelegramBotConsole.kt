@@ -1,7 +1,7 @@
 package coden.anxiety.debunker.telegram
 
 import coden.anxiety.debunker.core.api.Console
-import coden.anxiety.debunker.telegram.bot.StartableLongPollingBot
+import coden.anxiety.debunker.telegram.bot.RunnableLongPollingBot
 import org.apache.logging.log4j.kotlin.Logging
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication
 import org.telegram.telegrambots.longpolling.util.DefaultGetUpdatesGenerator
@@ -10,7 +10,7 @@ import org.telegram.telegrambots.meta.api.methods.updates.GetUpdates
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException
 
 class TelegramBotConsole(
-    private vararg val bots: StartableLongPollingBot
+    private vararg val bots: RunnableLongPollingBot
 ): Console, Logging {
 
     private val allowedUpdates: List<String> = listOf(
@@ -31,7 +31,7 @@ class TelegramBotConsole(
                 .timeout(1)
                 .offset(lastReceivedUpdate + 1)
                 .allowedUpdates(allowedUpdates)
-                .build();
+                .build()
         }
     }
 

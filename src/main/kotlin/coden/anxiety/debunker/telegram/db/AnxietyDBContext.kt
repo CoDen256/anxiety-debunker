@@ -1,5 +1,6 @@
 package coden.anxiety.debunker.telegram.db
 
+import coden.utils.success
 import coden.utils.successOrElse
 import org.telegram.telegrambots.abilitybots.api.db.MapDBContext
 
@@ -14,7 +15,7 @@ open class AnxietyDBContext(filename: String) : MapDBContext(db(filename)) {
     private val botMessages
         get() = getSet<AnxietyLinkMessage>(BOT_ANXIETY_MESSAGES)
 
-    fun addAnxietyToMessagesLink(anxietyId: String, inMessage: OwnerMessage, outMessage: BotMessage){
+    fun addAnxietyToMessagesLink(anxietyId: String, inMessage: OwnerMessage, outMessage: BotMessage) {
         addOwnerMessageLink(anxietyId, inMessage)
         addBotMessageLink(anxietyId, outMessage)
     }
@@ -52,5 +53,16 @@ open class AnxietyDBContext(filename: String) : MapDBContext(db(filename)) {
             .firstOrNull { it.message == botMessage }
             ?.anxietyId
             .successOrElse(IllegalArgumentException("Unable to find anxiety for $botMessage"))
+    }
+
+    fun deleteLinks(botMessage: BotMessage): Result<Unit> {
+        val anxietyId = getAnxietyByBotMessage(botMessage).getOrThrow()
+        botMessages.removeIf { it.anxietyId == anxietyId }
+        ownerMessages
+            .filterValues { it == anxietyId }
+            .toList()
+            .forEach { ownerMessages.remove(it.first) }
+
+        return Result.success(Unit)
     }
 }

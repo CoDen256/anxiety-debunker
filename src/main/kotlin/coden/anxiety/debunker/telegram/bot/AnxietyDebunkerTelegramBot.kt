@@ -8,12 +8,18 @@ import coden.anxiety.debunker.telegram.db.BotMessage
 import coden.anxiety.debunker.telegram.db.BotMessage.Companion.asBot
 import coden.anxiety.debunker.telegram.db.OwnerMessage.Companion.asOwner
 import coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
+import coden.utils.singleThreadScope
+import kotlinx.coroutines.launch
 import org.apache.logging.log4j.kotlin.Logging
 import org.telegram.telegrambots.abilitybots.api.bot.AbilityBot
 import org.telegram.telegrambots.abilitybots.api.objects.Ability
 import org.telegram.telegrambots.abilitybots.api.objects.Flag
 import org.telegram.telegrambots.abilitybots.api.objects.Reply
 import org.telegram.telegrambots.abilitybots.api.util.AbilityUtils.getChatId
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup.EditMessageReplyMarkupBuilder
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.business.BusinessMessagesDeleted
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
@@ -29,7 +35,7 @@ class AnxietyDebunkerTelegramBot(
     private val formatter: AnxietyFormatter,
     private val anxietyDb: AnxietyDBContext,
     private val sender: TelegramClient,
-) : AbilityBot(sender, config.username, anxietyDb), StartableLongPollingBot, Logging {
+) : AbilityBot(sender, config.username, anxietyDb), RunnableLongPollingBot, Logging {
 
 
     override fun creatorId(): Long {
@@ -57,10 +63,21 @@ class AnxietyDebunkerTelegramBot(
         sender.sendHtml(table, getChatId(it))
     }
 
-    fun onAnxietyId() = replyOn({ isId(it)}){ upd ->
-        val anxietyId = getId(upd).getOrThrow()
+    fun onAllAnxieties() = ability("all") { upd ->
+        val anxieites = analyser
+            .anxieties(ListAnxietiesRequest(AnxietyFilter.MAX_RISK))
+            .getOrThrow()
+            .anxieties
+            .forEach { displayAnxietyAsMessage(it, upd) }
+    }
 
+    fun onAnxietyId() = replyOn({ isId(it) }) { upd ->
+        val anxietyId = getId(upd).getOrThrow()
         val anxiety = analyser.anxiety(AnxietyRequest(anxietyId)).getOrThrow()
+        displayAnxietyAsMessage(anxiety, upd)
+    }
+
+    private fun displayAnxietyAsMessage(anxiety: AnxietyEntityResponse, upd: Update) {
         val response = formatter.formatAnxiety(
             anxiety.id,
             anxiety.created,
@@ -68,12 +85,12 @@ class AnxietyDebunkerTelegramBot(
             anxiety.resolution
         )
 
-        val owner = anxietyDb.getOwnerMessageByAnxiety(anxietyId).getOrNull()
+        val owner = anxietyDb.getOwnerMessageByAnxiety(anxiety.id).getOrNull()
         val replyMarkup = markupFromResolution(anxiety.resolution)
         val botMessage = sender
             .sendMd(response, upd.chatId(), replyMarkup, replyTo = owner?.id)
             .asBot()
-        anxietyDb.addBotMessageLink(anxietyId, botMessage)
+        anxietyDb.addBotMessageLink(anxiety.id, botMessage)
     }
 
     fun onAnxiety(): Reply = replyOn({ justText(it) }) { upd ->
@@ -117,13 +134,14 @@ class AnxietyDebunkerTelegramBot(
         syncAnxietyMessages(updated.id, upd.chatId())
     }
 
-    fun onDeletedAnxiety(): Reply = replyOnReaction("\uD83D\uDC4E"){upd ->
+    fun onDeletedAnxiety(): Reply = replyOnReaction("\uD83D\uDC4E") { upd ->
         val anxietyId = anxietyDb
             .getAnxietyByBotMessage(upd.messageReaction.messageId.asBot())
             .getOrThrow()
 
         val deleted = holder.delete(DeleteAnxietyRequest(anxietyId)).getOrThrow()
-        syncAnxietyMessages(deleted.id, upd.chatId())
+
+        syncAnxietyMessages(deleted.id, upd.chatId(), true)
     }
 
     fun onCallback(): Reply = replyOnCallback { update, data ->
@@ -132,6 +150,7 @@ class AnxietyDebunkerTelegramBot(
             FULFILL.data -> onResolve(update, true)
             UNFULFILL.data -> onResolve(update, false)
             UNRESOLVE.data -> onUnresolve(update)
+            DELETE_MESSAGE.data -> onDeleteMessage(update)
         }
     }
 
@@ -158,29 +177,44 @@ class AnxietyDebunkerTelegramBot(
             .resolve(ResolveAnxietyRequest(anxiety, fulfilled))
             .getOrThrow()
 
-        syncAnxietyMessages(result.anxietyId, getChatId(update))
+        sender.execute(
+            AnswerCallbackQuery.builder().apply {
+                callbackQueryId(update.callbackQuery.id)
+                text(formatter.formatUpdatedAnxiety(result.anxietyId))
+            }.build(),
+        )
+        singleThreadScope.launch {
+            syncAnxietyMessages(result.anxietyId, getChatId(update))
+        }
+    }
+
+    private fun onDeleteMessage(update: Update){
+        anxietyDb.deleteLinks(update.callbackQuery.message.asBot())
+        sender.execute(DeleteMessage.builder().apply {
+            messageId(update.callbackQuery.message.messageId)
+            chatId(update.chatId())
+        }.build())
     }
 
 
-    private fun syncAnxietyMessages(
-        anxietyId: String,
-        chatId: Long,
-    ) {
+    private fun syncAnxietyMessages(anxietyId: String, chatId: Long, deleted: Boolean=false) {
         val targets: Set<BotMessage> = anxietyDb.getBotMessagesByAnxiety(anxietyId)
 
-        val updatedAnxiety = analyser
+        if (deleted){
+            return markDeleted(anxietyId, chatId, targets)
+        }
+
+        val anxiety = analyser
             .anxiety(AnxietyRequest(anxietyId))
-            .getOrNull()
-            ?: return markDeleted(anxietyId, chatId, targets)
+            .getOrThrow()
 
-
-        val markup = markupFromResolution(updatedAnxiety.resolution)
+        val markup = markupFromResolution(anxiety.resolution)
 
         val message = formatter.formatAnxiety(
-            updatedAnxiety.id,
-            updatedAnxiety.created,
-            updatedAnxiety.description,
-            updatedAnxiety.resolution
+            anxiety.id,
+            anxiety.created,
+            anxiety.description,
+            anxiety.resolution
         )
 
         val editBuilder = sender.editMdRequest(
@@ -194,9 +228,7 @@ class AnxietyDebunkerTelegramBot(
         }
     }
 
-    private fun markupFromResolution(
-        resolution: AnxietyEntityResolution
-                                     ): InlineKeyboardMarkup {
+    private fun markupFromResolution(resolution: AnxietyEntityResolution): InlineKeyboardMarkup {
         val markup = when (resolution) {
             AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
             else -> withResolvedAnxietyButtons()
@@ -204,15 +236,17 @@ class AnxietyDebunkerTelegramBot(
         return markup
     }
 
-    private fun markDeleted(anxietyId: String,
-                            chatId: Long,
-                            targets: Set<BotMessage>){
+    private fun markDeleted(
+        anxietyId: String,
+        chatId: Long,
+        targets: Set<BotMessage>
+    ) {
         for (target in targets.sortedByDescending { it.id }) {
             sender.editMd(
                 target.id,
                 formatter.formatDeletedAnxiety(anxietyId),
                 chatId,
-                replyMarkup = null
+                replyMarkup = withDeletedAnxietyButtons()
             )
         }
     }
