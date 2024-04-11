@@ -22,7 +22,8 @@ import org.telegram.telegrambots.meta.api.objects.ChatJoinRequest
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 
-
+// TODO Reload list on edited
+// TODO Severity
 class AnxietyDebunkerTelegramBot(
     private val config: TelegramBotConfig,
     private val analyser: AnxietyAnalyser,
