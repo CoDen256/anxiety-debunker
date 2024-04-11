@@ -17,7 +17,6 @@ import coden.anxiety.debunker.telegram.db.AnxietyDBContext
 import coden.anxiety.debunker.telegram.formatter.AnxietyTelegramFormatter
 import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.addFileSource
-import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient
 
 data class Config(
     val debunker: TelegramBotConfig,
@@ -48,8 +47,6 @@ fun main() {
     val formatter = AnxietyTelegramFormatter()
     val debunkerDb = AnxietyDBContext("debunker.db")
     val recorderDb = AnxietyDBContext("recorder.db")
-    val debunkerClient = OkHttpTelegramClient(config.debunker.token)
-    val recorderClient = OkHttpTelegramClient(config.recorder.token)
 
     val debunker = AnxietyDebunkerTelegramBot(
         config.debunker,
@@ -59,7 +56,6 @@ fun main() {
         assessor,
         formatter,
         debunkerDb,
-        debunkerClient
     )
 
     val recorder = AnxietyRecorderTelegramBot(
@@ -70,7 +66,6 @@ fun main() {
         assessor,
         formatter,
         recorderDb,
-        recorderClient
     )
 
     val console = TelegramBotConsole(

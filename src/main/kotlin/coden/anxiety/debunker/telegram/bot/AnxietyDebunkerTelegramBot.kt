@@ -1,7 +1,6 @@
 package coden.anxiety.debunker.telegram.bot
 
 import coden.anxiety.debunker.core.api.*
-import coden.anxiety.debunker.core.persistance.Chance
 import coden.anxiety.debunker.telegram.TelegramBotConfig
 import coden.anxiety.debunker.telegram.db.AnxietyDBContext
 import coden.anxiety.debunker.telegram.db.BotMessage
@@ -11,17 +10,17 @@ import coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
 import coden.utils.singleThreadScope
 import kotlinx.coroutines.launch
 import org.apache.logging.log4j.kotlin.Logging
-import org.telegram.telegrambots.abilitybots.api.bot.AbilityBot
-import org.telegram.telegrambots.abilitybots.api.objects.Ability
-import org.telegram.telegrambots.abilitybots.api.objects.Flag
-import org.telegram.telegrambots.abilitybots.api.objects.Reply
+import org.telegram.abilitybots.api.bot.AbilityBot
+import org.telegram.abilitybots.api.objects.Ability
+import org.telegram.abilitybots.api.objects.Flag
+import org.telegram.abilitybots.api.objects.Reply
+import org.telegram.abilitybots.api.util.AbilityUtils.EMPTY_USER
+import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
-import org.telegram.telegrambots.meta.api.methods.send.SendSticker
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
+import org.telegram.telegrambots.meta.api.objects.ChatJoinRequest
 import org.telegram.telegrambots.meta.api.objects.Update
-import org.telegram.telegrambots.meta.api.objects.business.BusinessMessagesDeleted
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
-import org.telegram.telegrambots.meta.generics.TelegramClient
 
 
 class AnxietyDebunkerTelegramBot(
@@ -32,8 +31,7 @@ class AnxietyDebunkerTelegramBot(
     private val assessor: AnxietyAssessor,
     private val formatter: AnxietyFormatter,
     private val anxietyDb: AnxietyDBContext,
-    private val sender: TelegramClient,
-) : AbilityBot(sender, config.username, anxietyDb), RunnableLongPollingBot, Logging {
+) : AbilityBot(config.token, config.username, anxietyDb, options()), RunnableLongPollingBot, Logging {
 
 
     override fun creatorId(): Long {
@@ -42,10 +40,6 @@ class AnxietyDebunkerTelegramBot(
 
     override fun run() {
         silent.sendMd(config.intro, config.target)
-    }
-
-    override fun token(): String {
-        return config.token
     }
 
     fun start(): Ability = ability("start") {
@@ -61,8 +55,9 @@ class AnxietyDebunkerTelegramBot(
         sender.sendHtml(table, it.chatId())
     }
 
-    fun onAllAnxieties() = ability("all") { upd ->
-        val anxieites = analyser
+
+    fun onAllAnxieties(): Ability = ability("all") { upd ->
+        analyser
             .anxieties(ListAnxietiesRequest(chances = ChanceFilter.HIGHEST_CHANCE))
             .getOrThrow()
             .anxieties
@@ -120,6 +115,7 @@ class AnxietyDebunkerTelegramBot(
             .asBot()
         anxietyDb.addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
     }
+
 
     fun onEditedAnxiety(): Reply = replyOn(Flag.EDITED_MESSAGE) { upd ->
         val anxiety = anxietyDb
@@ -262,11 +258,13 @@ class AnxietyDebunkerTelegramBot(
         }
     }
 
-    override fun consume(update: Update?) {
+    override fun onUpdateReceived(update: Update?) {
         // library does not see a valid user on reactions
         // hack to force library to think it has a valid user, but supplying fake info
         // it'll return EMPTY_USER
-        update?.deletedBusinessMessages = BusinessMessagesDeleted()
-        super.consume(update)
+        if (update?.messageReaction != null){
+            update.chatJoinRequest = ChatJoinRequest().apply { user=EMPTY_USER }
+        }
+        super.onUpdateReceived(update)
     }
 }

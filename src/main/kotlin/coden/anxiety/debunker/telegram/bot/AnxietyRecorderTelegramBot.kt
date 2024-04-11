@@ -8,16 +8,16 @@ import coden.anxiety.debunker.telegram.db.BotMessage.Companion.asBot
 import coden.anxiety.debunker.telegram.db.OwnerMessage.Companion.asOwner
 import coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
 import org.apache.logging.log4j.kotlin.Logging
-import org.telegram.telegrambots.abilitybots.api.bot.AbilityBot
-import org.telegram.telegrambots.abilitybots.api.objects.Ability
-import org.telegram.telegrambots.abilitybots.api.objects.Flag
-import org.telegram.telegrambots.abilitybots.api.objects.Reply
-import org.telegram.telegrambots.abilitybots.api.util.AbilityUtils.getChatId
+import org.telegram.abilitybots.api.bot.AbilityBot
+import org.telegram.abilitybots.api.objects.Ability
+import org.telegram.abilitybots.api.objects.Flag
+import org.telegram.abilitybots.api.objects.Reply
+import org.telegram.abilitybots.api.util.AbilityUtils.EMPTY_USER
+import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
+import org.telegram.telegrambots.meta.api.objects.ChatJoinRequest
 import org.telegram.telegrambots.meta.api.objects.Update
-import org.telegram.telegrambots.meta.api.objects.business.BusinessMessagesDeleted
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
-import org.telegram.telegrambots.meta.generics.TelegramClient
+
 
 class AnxietyRecorderTelegramBot(
     private val config: TelegramBotConfig,
@@ -27,8 +27,7 @@ class AnxietyRecorderTelegramBot(
     private val assessor: AnxietyAssessor,
     private val formatter: AnxietyFormatter,
     private val anxietyDb: AnxietyDBContext,
-    private val sender: TelegramClient,
-    ) : AbilityBot(sender, config.username, anxietyDb),
+    ) : AbilityBot(config.token, config.username, anxietyDb, options()),
     RunnableLongPollingBot, Logging {
     override fun creatorId(): Long {
         return config.target
@@ -36,10 +35,6 @@ class AnxietyRecorderTelegramBot(
 
     override fun run() {
         silent.sendMd(config.intro, config.target)
-    }
-
-    override fun token(): String {
-        return config.token
     }
 
     fun startCmd(): Ability = ability("start"){ run() }
@@ -55,7 +50,7 @@ class AnxietyRecorderTelegramBot(
     }
 
     fun onAllAnxieties() = ability("all") { upd ->
-        val anxieites = analyser
+        analyser
             .anxieties(ListAnxietiesRequest())
             .getOrThrow()
             .anxieties
@@ -193,11 +188,13 @@ class AnxietyRecorderTelegramBot(
         }
     }
 
-    override fun consume(update: Update?) {
+    override fun onUpdateReceived(update: Update?) {
         // library does not see a valid user on reactions
         // hack to force library to think it has a valid user, but supplying fake info
         // it'll return EMPTY_USER
-        update?.deletedBusinessMessages = BusinessMessagesDeleted()
-        super.consume(update)
+        if (update?.messageReaction != null){
+            update.chatJoinRequest = ChatJoinRequest().apply { user=EMPTY_USER }
+        }
+        super.onUpdateReceived(update)
     }
 }

@@ -29,7 +29,7 @@ class InMemoryAnxietyRepository : AnxietyRepository {
     override fun updateAnxiety(anxiety: Anxiety): Result<Anxiety> {
         if (!anxieties.containsKey(anxiety.id)) return Result.failure(NoSuchAnxietyException(anxiety.id))
 
-        return Result.success(anxieties.compute(anxiety.id) { k, v ->
+        return Result.success(anxieties.compute(anxiety.id) { _, _ ->
             anxiety
         }!!)
     }
@@ -43,7 +43,7 @@ class InMemoryAnxietyRepository : AnxietyRepository {
                 )
             )
         }
-        return Result.success(resolutions.compute(resolution.anxietyId) { k, v ->
+        return Result.success(resolutions.compute(resolution.anxietyId) { _, _ ->
             resolution
         }!!)
     }

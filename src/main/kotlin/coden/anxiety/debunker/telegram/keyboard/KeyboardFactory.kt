@@ -2,7 +2,6 @@ package coden.anxiety.debunker.telegram.keyboard
 
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow
 
 
 data class Keyboard(
@@ -62,7 +61,7 @@ fun Keyboard.asReplyKeyboard(): InlineKeyboardMarkup {
     val markup = InlineKeyboardMarkup.builder()
 
     for (line in lines) {
-        val row = InlineKeyboardRow()
+        val row = ArrayList<InlineKeyboardButton>()
         for (button in line.buttons) {
             val b = InlineKeyboardButton.builder().apply {
                 text(button.text)
