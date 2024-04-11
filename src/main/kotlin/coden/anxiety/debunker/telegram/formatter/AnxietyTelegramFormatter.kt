@@ -32,7 +32,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
     }
 
     override fun formatAnxiety(id: String, created: Instant, description: String, resolution: AnxietyResolutionResponse): String {
-        return "*Anxiety* #${id} ${formatResolution(resolution)}" +
+        return "*Anxiety* `#${id}` ${formatResolution(resolution)}" +
                 "\n${formatter.format(created.atZone(ZoneId.of("CET")))}" +
                 "\n\n$description"
     }

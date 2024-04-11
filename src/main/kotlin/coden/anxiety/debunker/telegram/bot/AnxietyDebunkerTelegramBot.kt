@@ -16,6 +16,7 @@ import org.telegram.telegrambots.abilitybots.api.objects.Ability
 import org.telegram.telegrambots.abilitybots.api.objects.Flag
 import org.telegram.telegrambots.abilitybots.api.objects.Reply
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
+import org.telegram.telegrambots.meta.api.methods.send.SendSticker
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.business.BusinessMessagesDeleted
@@ -171,6 +172,10 @@ class AnxietyDebunkerTelegramBot(
             .getAnxietyByBotMessage(target)
             .getOrThrow()
 
+        if (!fulfilled){
+            sender.sendMd("\uD83C\uDF89", update.chatId())
+        }
+
         val result = resolver
             .resolve(ResolveAnxietyRequest(anxiety, fulfilled))
             .getOrThrow()
@@ -187,11 +192,18 @@ class AnxietyDebunkerTelegramBot(
     }
 
     private fun onDeleteMessage(update: Update){
-        anxietyDb.deleteLinks(update.callbackQuery.message.asBot())
-        sender.execute(DeleteMessage.builder().apply {
-            messageId(update.callbackQuery.message.messageId)
-            chatId(update.chatId())
-        }.build())
+        val anxietyId = anxietyDb
+            .getAnxietyByBotMessage(update.callbackQuery.message.messageId.asBot())
+            .getOrThrow()
+        val targets = anxietyDb.getBotMessagesByAnxiety(anxietyId)
+        anxietyDb.deleteLinks(anxietyId)
+
+        for (target in targets) {
+            sender.execute(DeleteMessage.builder().apply {
+                messageId(target.id)
+                chatId(update.chatId())
+            }.build())
+        }
     }
 
 

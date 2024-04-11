@@ -53,7 +53,7 @@ fun tryHandle(
     try {
         handle(u)
     } catch (e: Exception) {
-        bot.silent.send("⚠ ${e.message}: \n$e", u.chatId())
+        bot.silent.send("⚠ ${e.message}\n\n$e", u.chatId())
     }
 }
 

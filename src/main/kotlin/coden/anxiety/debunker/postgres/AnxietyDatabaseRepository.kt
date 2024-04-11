@@ -134,7 +134,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
             .map { (key, value) ->
                 key.copy(chanceAssessments = value.mapNotNull { mapChanceAssessment(it) })
             }
-            .single()
+            .singleOrNull() ?: throw NoSuchAnxietyException(anxietyId)
     }
 
     override fun getAnxieties(): Result<List<Anxiety>> = transaction {

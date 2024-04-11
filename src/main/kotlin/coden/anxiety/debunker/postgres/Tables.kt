@@ -15,13 +15,13 @@ object Anxieties: Table("anxieties") {
 
 object Resolutions: Table("resolutions") {
     val anxietyId: Column<String> = reference("anxiety_id", Anxieties.id).uniqueIndex()
-    val created: Column<Instant> = timestamp("resolved")
+    val created: Column<Instant> = timestamp("created")
     val fulfilled: Column<Boolean> = bool("fulfilled")
 }
 
-object ChanceAssessments: Table("risk_assessments") {
-    val id: Column<String> = varchar("id", 5).uniqueIndex()
-    val anxietyId: Column<String> = reference("anxiety_id", Anxieties.id).uniqueIndex()
-    val created: Column<Instant> = timestamp("assessed")
-    val chance: Column<Int> = integer("risk")
+object ChanceAssessments: Table("chances") {
+    val id: Column<String> = varchar("id", 5)
+    val anxietyId: Column<String> = reference("anxiety_id", Anxieties.id)
+    val created: Column<Instant> = timestamp("created")
+    val chance: Column<Int> = integer("chance")
 }

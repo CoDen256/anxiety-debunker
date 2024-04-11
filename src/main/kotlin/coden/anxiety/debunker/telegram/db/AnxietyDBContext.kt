@@ -55,8 +55,7 @@ open class AnxietyDBContext(filename: String) : MapDBContext(db(filename)) {
             .successOrElse(IllegalArgumentException("Unable to find anxiety for $botMessage"))
     }
 
-    fun deleteLinks(botMessage: BotMessage): Result<Unit> {
-        val anxietyId = getAnxietyByBotMessage(botMessage).getOrThrow()
+    fun deleteLinks(anxietyId: String): Result<Unit> {
         botMessages.removeIf { it.anxietyId == anxietyId }
         ownerMessages
             .filterValues { it == anxietyId }
