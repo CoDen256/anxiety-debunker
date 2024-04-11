@@ -26,7 +26,8 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
     override fun formatTableShort(response: AnxietyListResponse): String {
         val table = PrettyTable( "id", "anxiety")
         for (anxiety in response.anxieties.sortedBy { it.created }){
-            table.addRow("#${anxiety.id}", anxiety.description.take(20).padEnd(20,' '))
+            val res = formatResolution(anxiety.resolution)
+            table.addRow("$res #${anxiety.id}", anxiety.description.take(20).padEnd(20,' '))
         }
         return table.toString()
     }

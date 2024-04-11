@@ -16,10 +16,11 @@ import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
+import kotlin.random.Random
 
 // TODO Reload list on edited
 // TODO Severity
-class AnxietyDebunkerTelegramBot(
+open class AnxietyDebunkerTelegramBot(
     config: TelegramBotConfig,
     db: AnxietyBotDB,
     private val analyser: AnxietyAnalyser,
@@ -29,7 +30,7 @@ class AnxietyDebunkerTelegramBot(
     private val formatter: AnxietyFormatter,
 ) : BaseTelegramBot<AnxietyBotDB>(config, db){
 
-    fun anxietyStats(): Ability = ability("stat") {
+    open fun anxietyStats(): Ability = ability("stat") {
         val anxieties = analyser
             .anxieties(ListAnxietiesRequest(chances = ChanceFilter.HIGHEST_CHANCE))
             .getOrThrow()
@@ -39,7 +40,7 @@ class AnxietyDebunkerTelegramBot(
     }
 
 
-    fun onAllAnxieties(): Ability = ability("all") { upd ->
+    open fun onAllAnxieties(): Ability = ability("all") { upd ->
         analyser
             .anxieties(ListAnxietiesRequest(chances = ChanceFilter.HIGHEST_CHANCE))
             .getOrThrow()
@@ -53,7 +54,7 @@ class AnxietyDebunkerTelegramBot(
         displayAnxietyAsMessage(anxiety, upd)
     }
 
-    private fun displayAnxietyAsMessage(anxiety: AnxietyEntityResponse, upd: Update) {
+    protected fun displayAnxietyAsMessage(anxiety: AnxietyEntityResponse, upd: Update) {
         val response = formatter.formatAnxiety(
             anxiety.id,
             anxiety.created,
@@ -69,7 +70,7 @@ class AnxietyDebunkerTelegramBot(
         db().addBotMessageLink(anxiety.id, botMessage)
     }
 
-    fun onAnxiety(): Reply = replyOn({ justText(it) }) { upd ->
+    open fun onAnxiety(): Reply = replyOn({ justText(it) }) { upd ->
         silent.send("Damn it sucks \uD83D\uDE14\nBut I got you!", upd.chatId())
 
         val description = cleanText(upd)
@@ -154,7 +155,7 @@ class AnxietyDebunkerTelegramBot(
             .getAnxietyByBotMessage(target)
             .getOrThrow()
 
-        if (!fulfilled){
+        if (!fulfilled and (Random.nextInt(0, 10) == 0)){
             sender.sendMd("\uD83C\uDF89", update.chatId())
         }
 
