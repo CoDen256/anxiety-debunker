@@ -12,30 +12,28 @@ class DefaultAnxietyResolver(
     override fun resolve(request: ResolveAnxietyRequest): Result<ResolveAnxietyResponse> {
         logger.info("Resolving anxiety ${request.anxietyId} -> fulfilled: ${request.fulfilled}...")
 
-        val resolution = Resolution(request.anxietyId, request.fulfilled)
         return repository
-            .saveResolution(resolution)
-            .map { ResolveAnxietyResponse(resolution.anxietyId, resolution.fulfilled, resolution.resolvedAt) }
-            .logInteraction(logger, "Resolving anxiety ${request.anxietyId}")
+            .saveResolution(Resolution(request.anxietyId, request.fulfilled))
+            .map { ResolveAnxietyResponse(it.anxietyId, it.fulfilled, it.created) }
+            .logInteraction(logger){ "Resolved ${it.anxietyId}"}
     }
 
     override fun unresolve(request: UnresolveAnxietyRequest): Result<UnresolveAnxietyResponse> {
         logger.info("Unresolving anxiety ${request.anxietyId}...")
 
         return repository
-            .deleteResolution(request.anxietyId)
-            .map { UnresolveAnxietyResponse(request.anxietyId) }
-            .logInteraction(logger, "Unresolving anxiety ${request.anxietyId}")
+            .deleteResolutionByAnxietyId(request.anxietyId)
+            .map { UnresolveAnxietyResponse(it.anxietyId) }
+            .logInteraction(logger){ "Unresolved ${it.anxietyId}"}
     }
 
     override fun update(request: UpdateResolutionRequest): Result<UpdateResolutionResponse> {
         logger.info("Updating resolution for ${request.anxietyId} -> fulfilled: ${request.fulfilled}...")
 
-        val resolution = Resolution(request.anxietyId, request.fulfilled)
         return repository
-            .updateResolution(resolution)
-            .map { UpdateResolutionResponse(it.anxietyId, it.fulfilled, it.resolvedAt) }
-            .logInteraction(logger, "Updating resolution for ${request.anxietyId}")
+            .updateResolution(Resolution(request.anxietyId, request.fulfilled))
+            .map { UpdateResolutionResponse(it.anxietyId, it.fulfilled, it.created) }
+            .logInteraction(logger){ "Updated ${request.anxietyId}"}
     }
 
     override fun clear(request: ClearResolutionsRequest): Result<ClearResolutionsResponse> {
@@ -44,6 +42,6 @@ class DefaultAnxietyResolver(
         return repository
             .clearResolutions()
             .map { ClearResolutionsResponse(it) }
-            .logInteraction(logger, "Clearing resolutions")
+            .logInteraction(logger){ "Cleared resolutions"}
     }
 }

@@ -1,7 +1,7 @@
 package coden.anxiety.debunker.telegram.bot
 
 import coden.anxiety.debunker.core.api.*
-import coden.anxiety.debunker.core.persistance.RiskLevel
+import coden.anxiety.debunker.core.persistance.Chance
 import coden.anxiety.debunker.telegram.TelegramBotConfig
 import coden.anxiety.debunker.telegram.db.AnxietyDBContext
 import coden.anxiety.debunker.telegram.db.BotMessage
@@ -15,11 +15,8 @@ import org.telegram.telegrambots.abilitybots.api.bot.AbilityBot
 import org.telegram.telegrambots.abilitybots.api.objects.Ability
 import org.telegram.telegrambots.abilitybots.api.objects.Flag
 import org.telegram.telegrambots.abilitybots.api.objects.Reply
-import org.telegram.telegrambots.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup.EditMessageReplyMarkupBuilder
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.business.BusinessMessagesDeleted
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
@@ -56,16 +53,16 @@ class AnxietyDebunkerTelegramBot(
 
     fun anxietyStats(): Ability = ability("stat") {
         val anxieties = analyser
-            .anxieties(ListAnxietiesRequest(AnxietyFilter.MAX_RISK))
+            .anxieties(ListAnxietiesRequest(chances = ChanceFilter.HIGHEST_CHANCE))
             .getOrThrow()
 
-        val table = formatter.format(anxieties).asCodeSnippet()
-        sender.sendHtml(table, getChatId(it))
+        val table = formatter.formatTableWithResolutions(anxieties).asCodeSnippet()
+        sender.sendHtml(table, it.chatId())
     }
 
     fun onAllAnxieties() = ability("all") { upd ->
         val anxieites = analyser
-            .anxieties(ListAnxietiesRequest(AnxietyFilter.MAX_RISK))
+            .anxieties(ListAnxietiesRequest(chances = ChanceFilter.HIGHEST_CHANCE))
             .getOrThrow()
             .anxieties
             .forEach { displayAnxietyAsMessage(it, upd) }
@@ -73,7 +70,7 @@ class AnxietyDebunkerTelegramBot(
 
     fun onAnxietyId() = replyOn({ isId(it) }) { upd ->
         val anxietyId = getId(upd).getOrThrow()
-        val anxiety = analyser.anxiety(AnxietyRequest(anxietyId)).getOrThrow()
+        val anxiety = analyser.anxiety(GetAnxietyRequest(anxietyId)).getOrThrow()
         displayAnxietyAsMessage(anxiety, upd)
     }
 
@@ -94,7 +91,7 @@ class AnxietyDebunkerTelegramBot(
     }
 
     fun onAnxiety(): Reply = replyOn({ justText(it) }) { upd ->
-        silent.send("Gotcha", upd.chatId())
+        silent.send("Damn it sucks \uD83D\uDE14\nBut I got you!", upd.chatId())
 
         val description = cleanText(upd)
 
@@ -102,20 +99,21 @@ class AnxietyDebunkerTelegramBot(
             .add(NewAnxietyRequest(description))
             .getOrThrow()
 
-        // property of the debunked bot. By default all of MAX level
+        val resolution = AnxietyResolutionResponse(AnxietyResolutionType.UNRESOLVED, null)
+        // property of the debunked bot. By default all of the HIGHEST level
         assessor
-            .add(NewRiskRequest(RiskLevel.MAX, newAnxiety.id))
+            .assess(NewChanceAssessmentRequest(ChanceAssessment.HIGHEST, newAnxiety.id))
             .getOrThrow()
 
         val response = formatter.formatAnxiety(
             newAnxiety.id,
             newAnxiety.created,
             newAnxiety.description,
-            AnxietyEntityResolution.UNRESOLVED
+            resolution
         )
 
         val ownerMessage = upd.message.asOwner()
-        val replyMarkup = withNewAnxietyButtons()
+        val replyMarkup = markupFromResolution(resolution)
         val botMessage = sender
             .sendMd(response, upd.chatId(), replyMarkup)
             .asBot()
@@ -164,7 +162,7 @@ class AnxietyDebunkerTelegramBot(
             .unresolve(UnresolveAnxietyRequest(anxiety))
             .getOrThrow()
 
-        syncAnxietyMessages(result.anxietyId, getChatId(update))
+        syncAnxietyMessages(result.anxietyId, update.chatId())
     }
 
     private fun onResolve(update: Update, fulfilled: Boolean) {
@@ -184,7 +182,7 @@ class AnxietyDebunkerTelegramBot(
             }.build(),
         )
         singleThreadScope.launch {
-            syncAnxietyMessages(result.anxietyId, getChatId(update))
+            syncAnxietyMessages(result.anxietyId, update.chatId())
         }
     }
 
@@ -205,7 +203,7 @@ class AnxietyDebunkerTelegramBot(
         }
 
         val anxiety = analyser
-            .anxiety(AnxietyRequest(anxietyId))
+            .anxiety(GetAnxietyRequest(anxietyId))
             .getOrThrow()
 
         val markup = markupFromResolution(anxiety.resolution)
@@ -228,9 +226,9 @@ class AnxietyDebunkerTelegramBot(
         }
     }
 
-    private fun markupFromResolution(resolution: AnxietyEntityResolution): InlineKeyboardMarkup {
-        val markup = when (resolution) {
-            AnxietyEntityResolution.UNRESOLVED -> withNewAnxietyButtons()
+    private fun markupFromResolution(resolution: AnxietyResolutionResponse): InlineKeyboardMarkup {
+        val markup = when (resolution.type) {
+            AnxietyResolutionType.UNRESOLVED -> withNewAnxietyButtons()
             else -> withResolvedAnxietyButtons()
         }
         return markup

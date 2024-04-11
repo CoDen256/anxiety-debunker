@@ -40,10 +40,10 @@ class AnxietyRecorderTelegramBot(
 
     fun anxietyStats():Ability = ability("stat") { upd ->
         val anxieties = analyser
-            .anxieties(ListAnxietiesRequest(AnxietyFilter.ALL))
+            .anxieties(ListAnxietiesRequest(ResolutionFilter.ALL))
             .getOrThrow()
 
-        val table = formatter.formatShort(anxieties).asCodeSnippet()
+        val table = formatter.formatTableShort(anxieties).asCodeSnippet()
         sender.sendHtml(table, getChatId(upd))
     }
 
@@ -57,12 +57,12 @@ class AnxietyRecorderTelegramBot(
             .add(NewAnxietyRequest(description))
             .getOrThrow()
 
-
+        val resolution = AnxietyResolutionResponse(AnxietyResolutionType.UNRESOLVED, null)
         val response = formatter.formatAnxiety(
             newAnxiety.id,
             newAnxiety.created,
             newAnxiety.description,
-            AnxietyEntityResolution.UNRESOLVED
+            resolution
         )
 
         val ownerMessage = upd.message.asOwner()

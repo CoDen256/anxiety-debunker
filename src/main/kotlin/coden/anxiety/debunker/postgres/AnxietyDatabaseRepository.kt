@@ -1,7 +1,10 @@
 package coden.anxiety.debunker.postgres
 
 import coden.anxiety.debunker.core.persistance.*
-import coden.anxiety.debunker.core.persistance.RiskLevel.Companion.asRisk
+import coden.anxiety.debunker.core.persistance.Chance.Companion.chance
+import coden.utils.flatMap
+import coden.utils.randomPronouncable
+import coden.utils.success
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -16,67 +19,85 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         }
     }
 
-    override fun saveAnxiety(anxiety: AnxietyEntity): Result<Unit> = transaction {
+    override fun saveAnxiety(anxiety: Anxiety): Result<Anxiety> = transaction {
         Anxieties.insert {
             it[id] = anxiety.id
             it[created] = anxiety.created.asDBInstant()
             it[description] = anxiety.description
         }
+        anxiety
     }
 
-    override fun saveResolution(resolution: Resolution): Result<Unit> = transaction {
+    override fun saveResolution(resolution: Resolution): Result<Resolution> = transaction {
         Resolutions.insert {
             it[anxietyId] = resolution.anxietyId
-            it[resolved] = resolution.resolvedAt.asDBInstant()
+            it[created] = resolution.created.asDBInstant()
             it[fulfilled] = resolution.fulfilled
         }
+        resolution
     }
 
-    override fun saveRiskAssessment(assessment: RiskAssessment): Result<Unit> = transaction {
-        RiskAssessments.insert {
+    override fun saveChanceAssessment(assessment: ChanceAssessment): Result<ChanceAssessment> = transaction {
+        ChanceAssessments.insert {
             it[anxietyId] = assessment.anxietyId
-            it[risk] = assessment.risk.level
+            it[chance] = assessment.chance.level
             it[id] = assessment.id
-            it[assessed] = assessment.assessed.asDBInstant()
+            it[created] = assessment.created.asDBInstant()
         }
+        assessment
     }
 
-    override fun updateAnxiety(anxietyId: String, newDescription: String): Result<AnxietyEntity> = transaction {
-        Anxieties.update(where = { Anxieties.id eq anxietyId }){
-            it[description] = newDescription
+    override fun updateAnxiety(anxiety: Anxiety): Result<Anxiety> = transaction {
+        Anxieties.update(where = { Anxieties.id eq anxiety.id }){
+            it[description] = anxiety.description
         }
-        Anxieties
-            .selectAll()
-            .where { Anxieties.id eq anxietyId }
-            .single()
-            .let { AnxietyEntity(it[Anxieties.description], it[Anxieties.id], it[Anxieties.created].asInstant()) }
+    }.flatMap {
+        getAnxietyById(anxiety.id)
     }
 
     override fun updateResolution(resolution: Resolution): Result<Resolution> = transaction {
         Resolutions.update(where = { Resolutions.anxietyId eq resolution.anxietyId }){
             it[fulfilled] = resolution.fulfilled
-            it[resolved] = resolution.resolvedAt.asDBInstant()
+            it[created] = resolution.created.asDBInstant()
         }
 
-        Resolutions
+        getResolutionById(resolution.anxietyId)
+    }
+
+    private fun getResolutionById(anxietyId: String): Resolution {
+        return Resolutions
             .selectAll()
-            .where { Resolutions.anxietyId eq resolution.anxietyId }
+            .where { Resolutions.anxietyId eq anxietyId }
+            .mapNotNull { mapResolution(it) }
             .single()
-            .let { Resolution(it[Resolutions.anxietyId], it[Resolutions.fulfilled], it[Resolutions.resolved].asInstant()) }
     }
 
-    override fun deleteAnxiety(anxietyId: String): Result<Unit> = transaction {
+    override fun deleteAnxietyById(anxietyId: String): Result<Anxiety> = transaction {
+        val anxiety = getAnxietyById(anxietyId)
         Resolutions.deleteWhere { Resolutions.anxietyId eq anxietyId }
-        RiskAssessments.deleteWhere { RiskAssessments.anxietyId eq anxietyId }
+        ChanceAssessments.deleteWhere { ChanceAssessments.anxietyId eq anxietyId }
         Anxieties.deleteWhere { id eq anxietyId }
+        anxiety.getOrThrow()
     }
 
-    override fun deleteResolution(anxietyId: String): Result<Unit> = transaction {
+    override fun deleteResolutionByAnxietyId(anxietyId: String): Result<Resolution> = transaction {
+        val resolution = getResolutionById(anxietyId)
         Resolutions.deleteWhere { Resolutions.anxietyId eq anxietyId }
+        resolution
     }
 
-    override fun deleteRiskAssessment(assessmentId: String): Result<Unit> = transaction {
-        RiskAssessments.deleteWhere { id eq assessmentId }
+    override fun deleteChanceAssessmentById(assessmentId: String): Result<ChanceAssessment> = transaction {
+        val assessment = getChanceAssessmentById(assessmentId)
+        ChanceAssessments.deleteWhere { id eq assessmentId }
+        assessment
+    }
+
+    private fun getChanceAssessmentById(id: String): ChanceAssessment {
+        return ChanceAssessments
+            .selectAll()
+            .where { ChanceAssessments.id eq id }
+            .mapNotNull { mapChanceAssessment(it) }
+            .single()
     }
 
     override fun clearAnxieties(): Result<Long> = transaction {
@@ -87,41 +108,53 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         Resolutions.deleteAll().toLong()
     }
 
-    override fun clearRiskAssessments(): Result<Long> = transaction {
-        RiskAssessments.deleteAll().toLong()
+    override fun clearChanceAssessments(): Result<Long> = transaction {
+        ChanceAssessments.deleteAll().toLong()
     }
 
-    override fun anxiety(anxietyId: String): Result<FullAnxietyEntity> = transaction {
+    override fun getNextAnxietyId(): Result<String> {
+        return Result.success(randomPronouncable(3, 5))
+    }
+
+    override fun getNextChanceAssessmentId(anxietyId: String): Result<String> = transaction{
+        ChanceAssessments
+            .selectAll()
+            .where { ChanceAssessments.anxietyId eq anxietyId }
+            .count()
+            .toString()
+    }
+
+    override fun getAnxietyById(anxietyId: String): Result<Anxiety> = transaction {
         Anxieties
             .leftJoin(Resolutions, { Anxieties.id }, { Resolutions.anxietyId })
-            .leftJoin(RiskAssessments, { Anxieties.id }, { RiskAssessments.anxietyId })
+            .leftJoin(ChanceAssessments, { Anxieties.id }, { ChanceAssessments.anxietyId })
             .selectAll()
             .where { Anxieties.id eq anxietyId }
             .groupBy { mapAnxiety(it) }
             .map { (key, value) ->
-                key.copy(riskAssessments = value.mapNotNull { mapRisk(it) })
+                key.copy(chanceAssessments = value.mapNotNull { mapChanceAssessment(it) })
             }
             .single()
     }
 
-    override fun anxieties(): Result<List<FullAnxietyEntity>> = transaction {
+    override fun getAnxieties(): Result<List<Anxiety>> = transaction {
         Anxieties
             .leftJoin(Resolutions, { Anxieties.id }, { Resolutions.anxietyId })
-            .leftJoin(RiskAssessments, { Anxieties.id }, { RiskAssessments.anxietyId })
+            .leftJoin(ChanceAssessments, { Anxieties.id }, { ChanceAssessments.anxietyId })
             .selectAll()
             .groupBy { mapAnxiety(it) }
             .map { (key, value) ->
-                key.copy(riskAssessments = value.mapNotNull { mapRisk(it) })
+                key.copy(chanceAssessments = value.mapNotNull { mapChanceAssessment(it) })
             }
     }
 
-    private fun mapAnxiety(row: ResultRow): FullAnxietyEntity {
-        return FullAnxietyEntity(
-            row[Anxieties.id],
-            row[Anxieties.description],
-            row[Anxieties.created].asInstant(),
-            mapResolution(row),
-            listOf()
+    private fun mapAnxiety(row: ResultRow): Anxiety {
+        return Anxiety(
+            description = row[Anxieties.description],
+            id=row[Anxieties.id],
+            created = row[Anxieties.created].asInstant(),
+            resolution = mapResolution(row),
+            chanceAssessments = listOf()
         )
     }
 
@@ -130,17 +163,17 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         return Resolution(
             anxietyId,
             row[Resolutions.fulfilled],
-            row[Resolutions.resolved].asInstant()
+            row[Resolutions.created].asInstant()
         )
     }
 
-    private fun mapRisk(row: ResultRow): RiskAssessment? {
-        val anxietyId = row.getOrNull(RiskAssessments.anxietyId) ?: return null
-        return RiskAssessment(
+    private fun mapChanceAssessment(row: ResultRow): ChanceAssessment? {
+        val anxietyId = row.getOrNull(ChanceAssessments.anxietyId) ?: return null
+        return ChanceAssessment(
             anxietyId,
-            row[RiskAssessments.risk].asRisk(),
-            row[RiskAssessments.assessed].asInstant(),
-            row[RiskAssessments.id],
+            row[ChanceAssessments.chance].chance(),
+            row[ChanceAssessments.id],
+            row[ChanceAssessments.created].asInstant(),
         )
     }
 

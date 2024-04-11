@@ -1,8 +1,9 @@
 package coden.anxiety.debunker.core.impl
 
 import coden.anxiety.debunker.core.api.*
+import coden.anxiety.debunker.core.persistance.Anxiety
 import coden.anxiety.debunker.core.persistance.AnxietyRepository
-import coden.anxiety.debunker.core.persistance.FullAnxietyEntity
+import coden.anxiety.debunker.core.persistance.ChanceAssessment
 import coden.anxiety.debunker.core.persistance.Resolution
 import coden.utils.logInteraction
 import org.apache.logging.log4j.kotlin.Logging
@@ -11,44 +12,48 @@ class DefaultAnxietyAnalyser
     (
     private val anxietyRepository: AnxietyRepository,
 ) : AnxietyAnalyser, Logging {
-    override fun anxiety(request: AnxietyRequest): Result<AnxietyEntityResponse> {
+    override fun anxiety(request: GetAnxietyRequest): Result<AnxietyEntityResponse> {
         logger.info("Requesting anxiety ${request.id}...")
 
         return anxietyRepository
-            .anxiety(request.id)
+            .getAnxietyById(request.id)
             .map { mapAnxietyToEntityResponse(it) }
-            .logInteraction(logger, "Requesting anxiety ${request.id}...")
+            .logInteraction(logger){ "Got anxiety ${it.id}..."}
     }
 
     override fun anxieties(request: ListAnxietiesRequest): Result<AnxietyListResponse> {
         logger.info("Requesting all anxieties...")
 
         return anxietyRepository
-            .anxieties()
+            .getAnxieties() // performing for now client side filtering
             .map { anxieties -> anxieties
                 .map { mapAnxietyToEntityResponse(it) }
-                .filter { request.filter(it) }
+                .filter { anxiety -> request.chances.invoke(anxiety.latestChanceAssessment())  }
+                .filter { anxiety -> request.resolutions.invoke(anxiety.resolution) }
             }
             .map { AnxietyListResponse(it) }
-            .logInteraction(logger, "Requesting all anxieties")
+            .logInteraction(logger){ "Got all anxieties"}
     }
 
-    private fun mapAnxietyToEntityResponse(anxiety: FullAnxietyEntity): AnxietyEntityResponse {
+    private fun mapAnxietyToEntityResponse(anxiety: Anxiety): AnxietyEntityResponse {
         return AnxietyEntityResponse(
             anxiety.id,
             anxiety.description,
             anxiety.created,
-            anxiety.riskAssessments.map { it.risk }.maxByOrNull { it.level },
+            anxiety.chanceAssessments.map { mapChanceAssessment(it) },
             mapResolution(anxiety.resolution),
-            anxiety.resolution?.resolvedAt
         )
     }
 
-    private fun mapResolution(resolution: Resolution?): AnxietyEntityResolution {
+    private fun mapResolution(resolution: Resolution?): AnxietyResolutionResponse {
         return when (resolution?.fulfilled) {
-            true -> AnxietyEntityResolution.FULFILLED
-            false -> AnxietyEntityResolution.UNFULFILLED
-            else -> AnxietyEntityResolution.UNRESOLVED
+            true -> AnxietyResolutionResponse(AnxietyResolutionType.FULFILLED, resolution.created)
+            false -> AnxietyResolutionResponse(AnxietyResolutionType.UNFULFILLED, resolution.created)
+            else -> AnxietyResolutionResponse(AnxietyResolutionType.UNRESOLVED,  resolution?.created)
         }
+    }
+
+    private fun mapChanceAssessment(chance: ChanceAssessment): AnxietyChanceAssessmentResponse {
+        return AnxietyChanceAssessmentResponse(chance.chance.level, chance.created)
     }
 }

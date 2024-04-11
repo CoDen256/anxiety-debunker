@@ -2,37 +2,40 @@ package coden.anxiety.debunker.core.impl
 
 import coden.anxiety.debunker.core.api.*
 import coden.anxiety.debunker.core.persistance.AnxietyRepository
-import coden.anxiety.debunker.core.persistance.RiskAssessment
+import coden.anxiety.debunker.core.persistance.Chance.Companion.chance
+import coden.anxiety.debunker.core.persistance.ChanceAssessment
+import coden.anxiety.debunker.repo
+import coden.utils.flatMap
 import coden.utils.logInteraction
 import org.apache.logging.log4j.kotlin.Logging
 
 class DefaultAnxietyAssessor(private val repository: AnxietyRepository): AnxietyAssessor, Logging {
 
-    override fun add(request: NewRiskRequest): Result<NewRiskResponse> {
-        logger.info("Adding new risk of ${request.level} units for ${request.anxietyId}...")
+    override fun assess(request: NewChanceAssessmentRequest): Result<NewChanceAssessmentResponse> {
+        logger.info("Adding new chance of ${request.chance} units for ${request.anxietyId}...")
 
-        val risk = RiskAssessment(request.anxietyId, request.level)
-        return repository
-            .saveRiskAssessment(risk)
-            .map { NewRiskResponse(risk.id, risk.anxietyId, risk.risk) }
-            .logInteraction(logger, "Adding new risk of ${request.level}] for ${request.anxietyId}")
+        return repository.getNextChanceAssessmentId(request.anxietyId)
+            .map { id -> ChanceAssessment(request.anxietyId, request.chance.level.chance(), id) }
+            .flatMap { repository.saveChanceAssessment(it) }
+            .map { NewChanceAssessmentResponse(it.id, it.anxietyId, it.chance.level) }
+            .logInteraction(logger){"Added chance (${it.id}) of ${it.chance}] for ${it.anxietyId}"}
     }
 
-    override fun remove(request: DeleteRiskRequest): Result<DeleteRiskResponse> {
-        logger.info("Deleting risk ${request.id}...")
+    override fun remove(request: DeleteChanceAssessmentRequest): Result<DeleteChanceAssessmentResponse> {
+        logger.info("Deleting chance ${request.id}...")
 
         return repository
-            .deleteRiskAssessment(request.id)
-            .map { DeleteRiskResponse(request.id) }
-            .logInteraction(logger, "Deleting risk ${request.id}")
+            .deleteChanceAssessmentById(request.id)
+            .map { DeleteChanceAssessmentResponse(it.id) }
+            .logInteraction(logger){"Deleted chance ${it.id}"}
     }
 
-    override fun clear(request: ClearRisksRequest): Result<ClearRisksResponse> {
-        logger.info("Clearing risks...")
+    override fun clear(request: ClearChanceAssessmentsRequest): Result<ClearChanceAssessmentsResponse> {
+        logger.info("Clearing chances...")
 
         return repository
-            .clearRiskAssessments()
-            .map { ClearRisksResponse(it) }
-            .logInteraction(logger, "Clearing risks")
+            .clearChanceAssessments()
+            .map { ClearChanceAssessmentsResponse(it) }
+            .logInteraction(logger){"Cleared chances"}
     }
 }

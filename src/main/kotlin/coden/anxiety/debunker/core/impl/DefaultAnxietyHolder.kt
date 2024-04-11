@@ -1,7 +1,7 @@
 package coden.anxiety.debunker.core.impl
 
 import coden.anxiety.debunker.core.api.*
-import coden.anxiety.debunker.core.persistance.AnxietyEntity
+import coden.anxiety.debunker.core.persistance.Anxiety
 import coden.anxiety.debunker.core.persistance.AnxietyRepository
 import coden.utils.flatMap
 import coden.utils.logInteraction
@@ -13,28 +13,28 @@ class DefaultAnxietyHolder(
     override fun add(request: NewAnxietyRequest): Result<NewAnxietyResponse> {
         logger.info("Adding new anxiety ${request.description.take(15)}[...]")
 
-        val anxiety = AnxietyEntity(request.description)
-        return repository
-            .saveAnxiety(anxiety)
-            .map { NewAnxietyResponse(anxiety.id, anxiety.description, anxiety.created) }
-            .logInteraction(logger, "Adding new anxiety(${anxiety.id})")
+        return repository.getNextAnxietyId()
+            .flatMap { id -> repository.saveAnxiety(Anxiety(request.description, id)) }
+            .map { NewAnxietyResponse(it.id, it.description, it.created) }
+            .logInteraction(logger){ "Added new anxiety(${it.id})"}
     }
 
     override fun delete(request: DeleteAnxietyRequest): Result<DeleteAnxietyResponse> {
         logger.info("Removing anxiety(${request.id})...")
 
-        return repository.deleteAnxiety(request.id)
-            .map { DeleteAnxietyResponse(request.id) }
-            .logInteraction(logger, "Removing anxiety(${request.id})")
+        return repository.deleteAnxietyById(request.id)
+            .map { DeleteAnxietyResponse(it.id) }
+            .logInteraction(logger){ "Removed anxiety(${it.id})"}
     }
 
     override fun update(request: UpdateAnxietyRequest): Result<UpdateAnxietyResponse> {
         logger.info("Updating anxiety(${request.id}) -> ${request.description}...")
 
         return repository
-            .updateAnxiety(request.id, request.description)
+            .getAnxietyById(request.id)
+            .flatMap { repository.updateAnxiety(it.copy(description=request.description)) }
             .map { UpdateAnxietyResponse(it.id, it.description, it.created) }
-            .logInteraction(logger, "Updating anxiety(${request.id})")
+            .logInteraction(logger){ "Updated anxiety(${it.id})"}
     }
 
     override fun clear(request: ClearAnxietiesRequest): Result<ClearAnxietiesResponse> {
@@ -43,6 +43,6 @@ class DefaultAnxietyHolder(
         return repository
             .clearAnxieties()
             .map { ClearAnxietiesResponse(it) }
-            .logInteraction(logger, "Clearing anxieties")
+            .logInteraction(logger){ "Cleared anxieties"}
     }
 }

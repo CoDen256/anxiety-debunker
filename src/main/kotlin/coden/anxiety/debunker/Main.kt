@@ -4,20 +4,19 @@ import coden.anxiety.debunker.core.impl.DefaultAnxietyAnalyser
 import coden.anxiety.debunker.core.impl.DefaultAnxietyAssessor
 import coden.anxiety.debunker.core.impl.DefaultAnxietyHolder
 import coden.anxiety.debunker.core.impl.DefaultAnxietyResolver
-import coden.anxiety.debunker.core.persistance.*
+import coden.anxiety.debunker.core.persistance.AnxietyRepository
 import coden.anxiety.debunker.inmemory.InMemoryAnxietyRepository
 import coden.anxiety.debunker.postgres.AnxietyDatabaseRepository
 import coden.anxiety.debunker.postgres.DatasourceConfig
 import coden.anxiety.debunker.postgres.database
-import coden.anxiety.debunker.telegram.bot.AnxietyDebunkerTelegramBot
-import coden.anxiety.debunker.telegram.formatter.AnxietyTelegramFormatter
 import coden.anxiety.debunker.telegram.TelegramBotConfig
 import coden.anxiety.debunker.telegram.TelegramBotConsole
+import coden.anxiety.debunker.telegram.bot.AnxietyDebunkerTelegramBot
 import coden.anxiety.debunker.telegram.bot.AnxietyRecorderTelegramBot
 import coden.anxiety.debunker.telegram.db.AnxietyDBContext
+import coden.anxiety.debunker.telegram.formatter.AnxietyTelegramFormatter
 import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.addFileSource
-import okhttp3.OkHttpClient
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient
 
 data class Config(

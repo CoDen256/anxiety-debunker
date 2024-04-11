@@ -1,57 +1,69 @@
 package coden.anxiety.debunker.core.api
 
-import coden.anxiety.debunker.core.persistance.RiskLevel
 import java.time.Instant
 
 interface AnxietyAnalyser {
-    fun anxiety(request: AnxietyRequest): Result<AnxietyEntityResponse>
+    fun anxiety(request: GetAnxietyRequest): Result<AnxietyEntityResponse>
     fun anxieties(request: ListAnxietiesRequest): Result<AnxietyListResponse>
 }
 
-interface AnxietyAnalyserRequest
+sealed interface AnxietyAnalyserRequest
 
-data class AnxietyRequest(
-    val id: String
-): AnxietyAnalyserRequest
+data class GetAnxietyRequest(val id: String) : AnxietyAnalyserRequest
+data class ListAnxietiesRequest(val resolutions: ResolutionFilter = ResolutionFilter.ALL,
+                                val chances: ChanceFilter = ChanceFilter.ALL) : AnxietyAnalyserRequest
 
-data class ListAnxietiesRequest(
-    val filter: (AnxietyEntityResponse) -> Boolean
-): AnxietyAnalyserRequest
+class ResolutionFilter
+    (filter: (AnxietyResolutionResponse?) -> Boolean) :
+        (AnxietyResolutionResponse?) -> Boolean by filter {
 
-enum class AnxietyFilter
-    (filter: (AnxietyEntityResponse) -> Boolean) : (AnxietyEntityResponse) -> Boolean by filter
-{
-    FULLFILLED({it.resolution == AnxietyEntityResolution.FULFILLED }),
-    UNFULLFILLED({it.resolution == AnxietyEntityResolution.UNFULFILLED }),
-    UNRESOLVED({it.resolution == AnxietyEntityResolution.UNRESOLVED }),
-    MAX_RISK({it.risk == RiskLevel.MAX}),
-    ALL({true});
-
-    operator fun times(filter: AnxietyFilter): (AnxietyEntityResponse) -> Boolean{
-        return {this.invoke(it) && filter(it)}
+    companion object {
+        val FULLFILLED = ResolutionFilter { it?.type == AnxietyResolutionType.FULFILLED }
+        val UNFULLFILLED = ResolutionFilter { it?.type == AnxietyResolutionType.UNFULFILLED }
+        val UNRESOLVED = ResolutionFilter { it?.type == AnxietyResolutionType.UNRESOLVED }
+        val ALL = ResolutionFilter { true }
     }
-    operator fun plus(filter: AnxietyFilter): (AnxietyEntityResponse) -> Boolean{
-        return {this.invoke(it) || filter(it)}
+    operator fun times(filter: ResolutionFilter): ResolutionFilter {
+        return ResolutionFilter{ this.invoke(it) && filter(it) }
     }
-    operator fun not(): (AnxietyEntityResponse) -> Boolean{
-        return {!this(it)}
+
+    operator fun plus(filter: ResolutionFilter): ResolutionFilter {
+        return ResolutionFilter{ this.invoke(it) || filter(it) }
+    }
+
+    operator fun not(): ResolutionFilter {
+        return ResolutionFilter{ !this.invoke(it) }
     }
 }
 
-interface AnxietyAnalyserResponse
+class ChanceFilter(
+    filter: (AnxietyChanceAssessmentResponse?) -> Boolean
+): (AnxietyChanceAssessmentResponse?) -> Boolean by filter
+{
+    companion object {
+        const val LOWEST_LEVEL = 0
+        const val HIGHEST_LEVEL = 100
+        val LOWEST_CHANCE = ChanceFilter { it?.level == LOWEST_LEVEL }
+        val HIGHEST_CHANCE = ChanceFilter { it?.level == HIGHEST_LEVEL }
+        val ALL = ChanceFilter { true }
+    }
+}
+
+sealed interface AnxietyAnalyserResponse
 
 data class AnxietyEntityResponse(
     val id: String,
     val description: String,
     val created: Instant,
-    val risk: RiskLevel?,
-    val resolution: AnxietyEntityResolution,
-    val resolvedAt: Instant?
-    ,
-): AnxietyAnalyserResponse
+    val chances: List<AnxietyChanceAssessmentResponse>,
+    val resolution: AnxietyResolutionResponse,
+) : AnxietyAnalyserResponse {
+    fun latestChanceAssessment(): AnxietyChanceAssessmentResponse? {
+        return chances.lastOrNull()
+    }
+}
 
-enum class AnxietyEntityResolution{ FULFILLED, UNFULFILLED, UNRESOLVED }
-
-data class AnxietyListResponse(
-    val anxieties: List<AnxietyEntityResponse>
-): AnxietyAnalyserResponse
+data class AnxietyChanceAssessmentResponse(val level: Int, val created: Instant) : AnxietyAnalyserResponse
+data class AnxietyResolutionResponse(val type: AnxietyResolutionType, val resolved: Instant?) : AnxietyAnalyserResponse
+enum class AnxietyResolutionType { FULFILLED, UNFULFILLED, UNRESOLVED }
+data class AnxietyListResponse(val anxieties: List<AnxietyEntityResponse>) : AnxietyAnalyserResponse

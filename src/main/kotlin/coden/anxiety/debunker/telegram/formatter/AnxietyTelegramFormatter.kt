@@ -1,7 +1,8 @@
 package coden.anxiety.debunker.telegram.formatter
 
-import coden.anxiety.debunker.core.api.AnxietyEntityResolution
+import coden.anxiety.debunker.core.api.AnxietyResolutionType
 import coden.anxiety.debunker.core.api.AnxietyListResponse
+import coden.anxiety.debunker.core.api.AnxietyResolutionResponse
 import org.sk.PrettyTable
 import java.time.Instant
 import java.time.ZoneId
@@ -12,7 +13,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
     private val formatter = DateTimeFormatter.ofPattern("d MMM HH:mm")
     private val short = DateTimeFormatter.ofPattern("dd.MM HH:mm")
 
-    override fun format(response: AnxietyListResponse): String{
+    override fun formatTableWithResolutions(response: AnxietyListResponse): String{
         val table = PrettyTable("created", "id", "anxiety")
         for (anxiety in response.anxieties.sortedBy { it.created }){
             val created = short.format(anxiety.created.atZone(ZoneId.of("CET")))
@@ -22,7 +23,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
         return table.toString()
     }
 
-    override fun formatShort(response: AnxietyListResponse): String {
+    override fun formatTableShort(response: AnxietyListResponse): String {
         val table = PrettyTable( "id", "anxiety")
         for (anxiety in response.anxieties.sortedBy { it.created }){
             table.addRow("#${anxiety.id}", anxiety.description.take(30).padEnd(30,' '))
@@ -30,7 +31,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
         return table.toString()
     }
 
-    override fun formatAnxiety(id: String, created: Instant, description: String, resolution: AnxietyEntityResolution): String {
+    override fun formatAnxiety(id: String, created: Instant, description: String, resolution: AnxietyResolutionResponse): String {
         return "*Anxiety* #${id} ${formatResolution(resolution)}" +
                 "\n${formatter.format(created.atZone(ZoneId.of("CET")))}" +
                 "\n\n$description"
@@ -44,18 +45,18 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
         return "#${id} - ✅ Successfuly updated"
     }
 
-    override fun formatResolution(resolution: AnxietyEntityResolution): String{
-        return when(resolution){
-            AnxietyEntityResolution.UNRESOLVED -> "\uD83D\uDD18"
-            AnxietyEntityResolution.FULFILLED -> "🔴"
-            AnxietyEntityResolution.UNFULFILLED -> "🟢"
+    override fun formatResolution(resolution: AnxietyResolutionResponse): String{
+        return when(resolution.type){
+            AnxietyResolutionType.UNRESOLVED -> "\uD83D\uDD18"
+            AnxietyResolutionType.FULFILLED -> "🔴"
+            AnxietyResolutionType.UNFULFILLED -> "🟢"
         }
     }
-    private fun formatTableResolution(resolution: AnxietyEntityResolution): String{
-        return when(resolution){
-            AnxietyEntityResolution.UNRESOLVED -> "▫\uFE0F"
-            AnxietyEntityResolution.FULFILLED -> "🔴"
-            AnxietyEntityResolution.UNFULFILLED -> "🟢"
+    private fun formatTableResolution(resolution: AnxietyResolutionResponse): String{
+        return when(resolution.type){
+            AnxietyResolutionType.UNRESOLVED -> "▫\uFE0F"
+            AnxietyResolutionType.FULFILLED -> "🔴"
+            AnxietyResolutionType.UNFULFILLED -> "🟢"
         }
     }
 
