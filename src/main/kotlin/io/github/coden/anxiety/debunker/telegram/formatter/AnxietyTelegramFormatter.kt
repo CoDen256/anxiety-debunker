@@ -1,6 +1,8 @@
 package io.github.coden.anxiety.debunker.telegram.formatter
 
 import io.github.coden.anxiety.debunker.core.api.AnxietyListResponse
+import io.github.coden.anxiety.debunker.core.api.AnxietyResolutionResponse
+import io.github.coden.anxiety.debunker.core.api.AnxietyResolutionType
 import org.sk.PrettyTable
 import java.time.Instant
 import java.time.ZoneId
@@ -21,7 +23,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
         return table.toString()
     }
 
-    override fun formatTableShort(response: io.github.coden.anxiety.debunker.core.api.AnxietyListResponse): String {
+    override fun formatTableShort(response: AnxietyListResponse): String {
         val table = PrettyTable( "id", "anxiety")
         for (anxiety in response.anxieties.sortedBy { it.created }){
             table.addRow("#${anxiety.id}", anxiety.description.take(20).padEnd(20,' '))
@@ -29,7 +31,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
         return table.toString()
     }
 
-    override fun formatAnxiety(id: String, created: Instant, description: String, resolution: io.github.coden.anxiety.debunker.core.api.AnxietyResolutionResponse): String {
+    override fun formatAnxiety(id: String, created: Instant, description: String, resolution: AnxietyResolutionResponse): String {
         return "*Anxiety* `#${id}` ${formatResolution(resolution)}" +
                 "\n${formatter.format(created.atZone(ZoneId.of("CET")))}" +
                 "\n\n$description"
@@ -43,18 +45,18 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
         return "#${id} - ✅ Successfuly updated"
     }
 
-    override fun formatResolution(resolution: io.github.coden.anxiety.debunker.core.api.AnxietyResolutionResponse): String{
+    override fun formatResolution(resolution: AnxietyResolutionResponse): String{
         return when(resolution.type){
-            io.github.coden.anxiety.debunker.core.api.AnxietyResolutionType.UNRESOLVED -> "\uD83D\uDD18"
-            io.github.coden.anxiety.debunker.core.api.AnxietyResolutionType.FULFILLED -> "🔴"
-            io.github.coden.anxiety.debunker.core.api.AnxietyResolutionType.UNFULFILLED -> "🟢"
+            AnxietyResolutionType.UNRESOLVED -> "\uD83D\uDD18"
+            AnxietyResolutionType.FULFILLED -> "🔴"
+            AnxietyResolutionType.UNFULFILLED -> "🟢"
         }
     }
-    private fun formatTableResolution(resolution: io.github.coden.anxiety.debunker.core.api.AnxietyResolutionResponse): String{
+    private fun formatTableResolution(resolution: AnxietyResolutionResponse): String{
         return when(resolution.type){
-            io.github.coden.anxiety.debunker.core.api.AnxietyResolutionType.UNRESOLVED -> "▫\uFE0F"
-            io.github.coden.anxiety.debunker.core.api.AnxietyResolutionType.FULFILLED -> "🔴"
-            io.github.coden.anxiety.debunker.core.api.AnxietyResolutionType.UNFULFILLED -> "🟢"
+            AnxietyResolutionType.UNRESOLVED -> "▫\uFE0F"
+            AnxietyResolutionType.FULFILLED -> "🔴"
+            AnxietyResolutionType.UNFULFILLED -> "🟢"
         }
     }
 

@@ -10,8 +10,9 @@ recorder:
   username: anxiety_recorder_bot
   intro: "Hi!!"
 
-datasource:
+repo:
   inmemory: false
-  url: jdbc:postgresql://<host>/<schema>
-  password: <password>
-  user: <user>
+  datasource:
+    url: jdbc:postgresql://<host>/<schema>
+    password: <password>
+    user: <user>

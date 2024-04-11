@@ -1,13 +1,19 @@
 package io.github.coden.anxiety.debunker.telegram.db
 
+import io.github.coden.telegram.db.BotDB
+import io.github.coden.telegram.db.BotMessage
+import io.github.coden.telegram.db.OwnerMessage
 import io.github.coden.telegram.db.db
 import io.github.coden.utils.notNullOrFailure
 import org.telegram.abilitybots.api.db.MapDBContext
+import java.io.Serializable
 
 const val OWNER_ANXIETY_MESSAGES = "OWNER_ANXIETY_MESSAGES"
 const val BOT_ANXIETY_MESSAGES = "BOT_ANXIETY_MESSAGES"
 
-open class AnxietyDBContext(filename: String) : MapDBContext(db(filename)) {
+open class AnxietyBotDB(filename: String) :
+    MapDBContext(db(filename)), BotDB
+{
 
     private val ownerMessages
         get() = getMap<OwnerMessage, String>(OWNER_ANXIETY_MESSAGES)
@@ -65,3 +71,8 @@ open class AnxietyDBContext(filename: String) : MapDBContext(db(filename)) {
         return Result.success(Unit)
     }
 }
+
+data class AnxietyLinkMessage(
+    val message: BotMessage,
+    val anxietyId: String
+): Serializable

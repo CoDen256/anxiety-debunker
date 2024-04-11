@@ -1,49 +1,34 @@
 package io.github.coden.anxiety.debunker.telegram.bot
 
 import io.github.coden.anxiety.debunker.core.api.*
-import io.github.coden.anxiety.debunker.telegram.TelegramBotConfig
-import io.github.coden.anxiety.debunker.telegram.db.AnxietyDBContext
-import io.github.coden.anxiety.debunker.telegram.db.BotMessage
-import io.github.coden.anxiety.debunker.telegram.db.BotMessage.Companion.asBot
-import io.github.coden.anxiety.debunker.telegram.db.OwnerMessage.Companion.asOwner
+import io.github.coden.anxiety.debunker.telegram.db.AnxietyBotDB
 import io.github.coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
 import io.github.coden.telegram.abilities.*
-import org.apache.logging.log4j.kotlin.Logging
-import org.telegram.abilitybots.api.bot.AbilityBot
+import io.github.coden.telegram.db.BotMessage
+import io.github.coden.telegram.db.BotMessage.Companion.asBot
+import io.github.coden.telegram.db.OwnerMessage.Companion.asOwner
 import org.telegram.abilitybots.api.objects.Ability
 import org.telegram.abilitybots.api.objects.Flag
 import org.telegram.abilitybots.api.objects.Reply
-import org.telegram.abilitybots.api.util.AbilityUtils.EMPTY_USER
 import org.telegram.abilitybots.api.util.AbilityUtils.getChatId
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
-import org.telegram.telegrambots.meta.api.objects.ChatJoinRequest
 import org.telegram.telegrambots.meta.api.objects.Update
 
 
 class AnxietyRecorderTelegramBot(
-    private val config: TelegramBotConfig,
-    private val analyser: io.github.coden.anxiety.debunker.core.api.AnxietyAnalyser,
+    config: TelegramBotConfig,
+    db: AnxietyBotDB,
+    private val analyser: AnxietyAnalyser,
     private val holder: AnxietyHolder,
     private val resolver: AnxietyResolver,
     private val assessor: AnxietyAssessor,
     private val formatter: AnxietyFormatter,
-    private val anxietyDb: AnxietyDBContext,
-    ) : AbilityBot(config.token, config.username, anxietyDb, options()),
-    RunnableLongPollingBot, Logging {
-    override fun creatorId(): Long {
-        return config.target
-    }
-
-    override fun run() {
-        silent.sendMd(config.intro, config.target)
-    }
-
-    fun startCmd(): Ability = ability("start"){ run() }
-
+    ) : BaseTelegramBot<AnxietyBotDB>(config, db)
+{
 
     fun anxietyStats():Ability = ability("stat") { upd ->
         val anxieties = analyser
-            .anxieties(io.github.coden.anxiety.debunker.core.api.ListAnxietiesRequest())
+            .anxieties(ListAnxietiesRequest())
             .getOrThrow()
 
         val table = formatter.formatTableShort(anxieties).asCodeSnippet()
@@ -52,19 +37,19 @@ class AnxietyRecorderTelegramBot(
 
     fun onAllAnxieties() = ability("all") { upd ->
         analyser
-            .anxieties(io.github.coden.anxiety.debunker.core.api.ListAnxietiesRequest())
+            .anxieties(ListAnxietiesRequest())
             .getOrThrow()
             .anxieties
             .forEach { displayAnxietyAsMessage(it, upd) }
     }
     fun onAnxietyId() = replyOn({ isId(it) }) { upd ->
         val anxietyId = getId(upd).getOrThrow()
-        val anxiety = analyser.anxiety(io.github.coden.anxiety.debunker.core.api.GetAnxietyRequest(anxietyId)).getOrThrow()
+        val anxiety = analyser.anxiety(GetAnxietyRequest(anxietyId)).getOrThrow()
         displayAnxietyAsMessage(anxiety, upd)
     }
 
     fun onEditedAnxiety(): Reply = replyOn(Flag.EDITED_MESSAGE) { upd ->
-        val anxiety = anxietyDb
+        val anxiety = db()
             .getAnxietyByOwnerMessage(upd.editedMessage.asOwner())
             .getOrThrow()
 
@@ -84,8 +69,8 @@ class AnxietyRecorderTelegramBot(
             .add(NewAnxietyRequest(description))
             .getOrThrow()
 
-        val resolution = io.github.coden.anxiety.debunker.core.api.AnxietyResolutionResponse(
-            io.github.coden.anxiety.debunker.core.api.AnxietyResolutionType.UNRESOLVED,
+        val resolution = AnxietyResolutionResponse(
+            AnxietyResolutionType.UNRESOLVED,
             null
         )
         val response = formatter.formatAnxiety(
@@ -97,11 +82,11 @@ class AnxietyRecorderTelegramBot(
 
         val ownerMessage = upd.message.asOwner()
         val botMessage = sender.sendMd(response, getChatId(upd)).asBot()
-        anxietyDb.addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
+        db().addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
     }
 
     fun onDeletedAnxiety(): Reply = replyOnReaction("\uD83D\uDC4E") { upd ->
-        val anxietyId = anxietyDb
+        val anxietyId = db()
             .getAnxietyByBotMessage(upd.messageReaction.messageId.asBot())
             .getOrThrow()
 
@@ -117,7 +102,7 @@ class AnxietyRecorderTelegramBot(
         }
     }
 
-    private fun displayAnxietyAsMessage(anxiety: io.github.coden.anxiety.debunker.core.api.AnxietyEntityResponse, upd: Update) {
+    private fun displayAnxietyAsMessage(anxiety: AnxietyEntityResponse, upd: Update) {
         val response = formatter.formatAnxiety(
             anxiety.id,
             anxiety.created,
@@ -125,19 +110,20 @@ class AnxietyRecorderTelegramBot(
             anxiety.resolution
         )
 
-        val owner = anxietyDb.getOwnerMessageByAnxiety(anxiety.id).getOrNull()
+        val owner = db().getOwnerMessageByAnxiety(anxiety.id).getOrNull()
         val botMessage = sender
             .sendMd(response, upd.chatId(), replyTo = owner?.id)
             .asBot()
-        anxietyDb.addBotMessageLink(anxiety.id, botMessage)
+
+        db().addBotMessageLink(anxiety.id, botMessage)
     }
 
     private fun onDeleteMessage(update: Update){
-        val anxietyId = anxietyDb
+        val anxietyId = db()
             .getAnxietyByBotMessage(update.callbackQuery.message.messageId.asBot())
             .getOrThrow()
-        val targets = anxietyDb.getBotMessagesByAnxiety(anxietyId)
-        anxietyDb.deleteLinks(anxietyId)
+        val targets = db().getBotMessagesByAnxiety(anxietyId)
+        db().deleteLinks(anxietyId)
 
         for (target in targets) {
             sender.execute(DeleteMessage.builder().apply {
@@ -149,14 +135,14 @@ class AnxietyRecorderTelegramBot(
 
 
     private fun syncAnxietyMessages(anxietyId: String, chatId: Long, deleted: Boolean=false) {
-        val targets: Set<BotMessage> = anxietyDb.getBotMessagesByAnxiety(anxietyId)
+        val targets: Set<BotMessage> = db().getBotMessagesByAnxiety(anxietyId)
 
         if (deleted){
             return markDeleted(anxietyId, chatId, targets)
         }
 
         val anxiety = analyser
-            .anxiety(io.github.coden.anxiety.debunker.core.api.GetAnxietyRequest(anxietyId))
+            .anxiety(GetAnxietyRequest(anxietyId))
             .getOrThrow()
 
         val message = formatter.formatAnxiety(
@@ -190,15 +176,5 @@ class AnxietyRecorderTelegramBot(
                 replyMarkup = withDeletedAnxietyButtons()
             )
         }
-    }
-
-    override fun onUpdateReceived(update: Update?) {
-        // library does not see a valid user on reactions
-        // hack to force library to think it has a valid user, but supplying fake info
-        // it'll return EMPTY_USER
-        if (update?.messageReaction != null){
-            update.chatJoinRequest = ChatJoinRequest().apply { user=EMPTY_USER }
-        }
-        super.onUpdateReceived(update)
     }
 }

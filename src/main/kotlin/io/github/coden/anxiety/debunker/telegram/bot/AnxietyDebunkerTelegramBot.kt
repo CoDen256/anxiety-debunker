@@ -1,51 +1,33 @@
 package io.github.coden.anxiety.debunker.telegram.bot
 
 import io.github.coden.anxiety.debunker.core.api.*
-import io.github.coden.anxiety.debunker.telegram.TelegramBotConfig
-import io.github.coden.anxiety.debunker.telegram.db.AnxietyDBContext
-import io.github.coden.anxiety.debunker.telegram.db.BotMessage
-import io.github.coden.anxiety.debunker.telegram.db.BotMessage.Companion.asBot
-import io.github.coden.anxiety.debunker.telegram.db.OwnerMessage.Companion.asOwner
+import io.github.coden.anxiety.debunker.telegram.db.AnxietyBotDB
 import io.github.coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
 import io.github.coden.telegram.abilities.*
+import io.github.coden.telegram.db.BotMessage
+import io.github.coden.telegram.db.BotMessage.Companion.asBot
+import io.github.coden.telegram.db.OwnerMessage.Companion.asOwner
 import io.github.coden.utils.singleThreadScope
 import kotlinx.coroutines.launch
-import org.apache.logging.log4j.kotlin.Logging
-import org.telegram.abilitybots.api.bot.AbilityBot
 import org.telegram.abilitybots.api.objects.Ability
 import org.telegram.abilitybots.api.objects.Flag
 import org.telegram.abilitybots.api.objects.Reply
-import org.telegram.abilitybots.api.util.AbilityUtils.EMPTY_USER
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
-import org.telegram.telegrambots.meta.api.objects.ChatJoinRequest
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 
 // TODO Reload list on edited
 // TODO Severity
 class AnxietyDebunkerTelegramBot(
-    private val config: TelegramBotConfig,
+    config: TelegramBotConfig,
+    db: AnxietyBotDB,
     private val analyser: AnxietyAnalyser,
     private val holder: AnxietyHolder,
     private val resolver: AnxietyResolver,
     private val assessor: AnxietyAssessor,
     private val formatter: AnxietyFormatter,
-    private val anxietyDb: AnxietyDBContext,
-) : AbilityBot(config.token, config.username, anxietyDb, options()), RunnableLongPollingBot, Logging {
-
-
-    override fun creatorId(): Long {
-        return config.target
-    }
-
-    override fun run() {
-        silent.sendMd(config.intro, config.target)
-    }
-
-    fun start(): Ability = ability("start") {
-        run()
-    }
+) : BaseTelegramBot<AnxietyBotDB>(config, db){
 
     fun anxietyStats(): Ability = ability("stat") {
         val anxieties = analyser
@@ -79,12 +61,12 @@ class AnxietyDebunkerTelegramBot(
             anxiety.resolution
         )
 
-        val owner = anxietyDb.getOwnerMessageByAnxiety(anxiety.id).getOrNull()
+        val owner = db().getOwnerMessageByAnxiety(anxiety.id).getOrNull()
         val replyMarkup = markupFromResolution(anxiety.resolution)
         val botMessage = sender
             .sendMd(response, upd.chatId(), replyMarkup, replyTo = owner?.id)
             .asBot()
-        anxietyDb.addBotMessageLink(anxiety.id, botMessage)
+        db().addBotMessageLink(anxiety.id, botMessage)
     }
 
     fun onAnxiety(): Reply = replyOn({ justText(it) }) { upd ->
@@ -117,12 +99,12 @@ class AnxietyDebunkerTelegramBot(
         val botMessage = sender
             .sendMd(response, upd.chatId(), replyMarkup)
             .asBot()
-        anxietyDb.addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
+        db().addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
     }
 
 
     fun onEditedAnxiety(): Reply = replyOn(Flag.EDITED_MESSAGE) { upd ->
-        val anxiety = anxietyDb
+        val anxiety = db()
             .getAnxietyByOwnerMessage(upd.editedMessage.asOwner())
             .getOrThrow()
 
@@ -134,7 +116,7 @@ class AnxietyDebunkerTelegramBot(
     }
 
     fun onDeletedAnxiety(): Reply = replyOnReaction("\uD83D\uDC4E") { upd ->
-        val anxietyId = anxietyDb
+        val anxietyId = db()
             .getAnxietyByBotMessage(upd.messageReaction.messageId.asBot())
             .getOrThrow()
 
@@ -155,7 +137,7 @@ class AnxietyDebunkerTelegramBot(
 
     private fun onUnresolve(update: Update) {
         val target = update.callbackQuery.message.asBot()
-        val anxiety = anxietyDb
+        val anxiety = db()
             .getAnxietyByBotMessage(target)
             .getOrThrow()
 
@@ -168,7 +150,7 @@ class AnxietyDebunkerTelegramBot(
 
     private fun onResolve(update: Update, fulfilled: Boolean) {
         val target = update.callbackQuery.message.asBot()
-        val anxiety = anxietyDb
+        val anxiety = db()
             .getAnxietyByBotMessage(target)
             .getOrThrow()
 
@@ -192,11 +174,11 @@ class AnxietyDebunkerTelegramBot(
     }
 
     private fun onDeleteMessage(update: Update){
-        val anxietyId = anxietyDb
+        val anxietyId = db()
             .getAnxietyByBotMessage(update.callbackQuery.message.messageId.asBot())
             .getOrThrow()
-        val targets = anxietyDb.getBotMessagesByAnxiety(anxietyId)
-        anxietyDb.deleteLinks(anxietyId)
+        val targets = db().getBotMessagesByAnxiety(anxietyId)
+        db().deleteLinks(anxietyId)
 
         for (target in targets) {
             sender.execute(DeleteMessage.builder().apply {
@@ -208,7 +190,7 @@ class AnxietyDebunkerTelegramBot(
 
 
     private fun syncAnxietyMessages(anxietyId: String, chatId: Long, deleted: Boolean=false) {
-        val targets: Set<BotMessage> = anxietyDb.getBotMessagesByAnxiety(anxietyId)
+        val targets: Set<BotMessage> = db().getBotMessagesByAnxiety(anxietyId)
 
         if (deleted){
             return markDeleted(anxietyId, chatId, targets)
@@ -260,15 +242,5 @@ class AnxietyDebunkerTelegramBot(
                 replyMarkup = withDeletedAnxietyButtons()
             )
         }
-    }
-
-    override fun onUpdateReceived(update: Update?) {
-        // library does not see a valid user on reactions
-        // hack to force library to think it has a valid user, but supplying fake info
-        // it'll return EMPTY_USER
-        if (update?.messageReaction != null){
-            update.chatJoinRequest = ChatJoinRequest().apply { user=EMPTY_USER }
-        }
-        super.onUpdateReceived(update)
     }
 }

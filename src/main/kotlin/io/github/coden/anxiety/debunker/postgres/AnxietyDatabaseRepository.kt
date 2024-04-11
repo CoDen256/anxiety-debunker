@@ -2,24 +2,18 @@ package io.github.coden.anxiety.debunker.postgres
 
 import io.github.coden.anxiety.debunker.core.persistance.*
 import io.github.coden.anxiety.debunker.core.persistance.Chance.Companion.chance
+import io.github.coden.database.asDBInstant
+import io.github.coden.database.asInstant
+import io.github.coden.database.transaction
 import io.github.coden.utils.flatMap
 import io.github.coden.utils.randomPronouncable
-import io.github.coden.utils.success
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.transactions.transaction
 
 class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
 
-    private fun <T : Any> transaction(query: Transaction.() -> T): Result<T> {
-        return try {
-            Result.success(transaction(db) { query() })
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
 
-    override fun saveAnxiety(anxiety: Anxiety): Result<Anxiety> = transaction {
+    override fun saveAnxiety(anxiety: Anxiety): Result<Anxiety> = db.transaction {
         Anxieties.insert {
             it[id] = anxiety.id
             it[created] = anxiety.created.asDBInstant()
@@ -28,7 +22,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         anxiety
     }
 
-    override fun saveResolution(resolution: Resolution): Result<Resolution> = transaction {
+    override fun saveResolution(resolution: Resolution): Result<Resolution> = db.transaction {
         Resolutions.insert {
             it[anxietyId] = resolution.anxietyId
             it[created] = resolution.created.asDBInstant()
@@ -37,7 +31,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         resolution
     }
 
-    override fun saveChanceAssessment(assessment: ChanceAssessment): Result<ChanceAssessment> = transaction {
+    override fun saveChanceAssessment(assessment: ChanceAssessment): Result<ChanceAssessment> = db.transaction {
         ChanceAssessments.insert {
             it[anxietyId] = assessment.anxietyId
             it[chance] = assessment.chance.level
@@ -47,16 +41,16 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         assessment
     }
 
-    override fun updateAnxiety(anxiety: Anxiety): Result<Anxiety> = transaction {
-        Anxieties.update(where = { Anxieties.id eq anxiety.id }){
+    override fun updateAnxiety(anxiety: Anxiety): Result<Anxiety> = db.transaction {
+        Anxieties.update(where = { Anxieties.id eq anxiety.id }) {
             it[description] = anxiety.description
         }
     }.flatMap {
         getAnxietyById(anxiety.id)
     }
 
-    override fun updateResolution(resolution: Resolution): Result<Resolution> = transaction {
-        Resolutions.update(where = { Resolutions.anxietyId eq resolution.anxietyId }){
+    override fun updateResolution(resolution: Resolution): Result<Resolution> = db.transaction {
+        Resolutions.update(where = { Resolutions.anxietyId eq resolution.anxietyId }) {
             it[fulfilled] = resolution.fulfilled
             it[created] = resolution.created.asDBInstant()
         }
@@ -72,7 +66,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
             .single()
     }
 
-    override fun deleteAnxietyById(anxietyId: String): Result<Anxiety> = transaction {
+    override fun deleteAnxietyById(anxietyId: String): Result<Anxiety> = db.transaction {
         val anxiety = getAnxietyById(anxietyId)
         Resolutions.deleteWhere { Resolutions.anxietyId eq anxietyId }
         ChanceAssessments.deleteWhere { ChanceAssessments.anxietyId eq anxietyId }
@@ -80,13 +74,13 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         anxiety.getOrThrow()
     }
 
-    override fun deleteResolutionByAnxietyId(anxietyId: String): Result<Resolution> = transaction {
+    override fun deleteResolutionByAnxietyId(anxietyId: String): Result<Resolution> = db.transaction {
         val resolution = getResolutionById(anxietyId)
         Resolutions.deleteWhere { Resolutions.anxietyId eq anxietyId }
         resolution
     }
 
-    override fun deleteChanceAssessmentById(assessmentId: String): Result<ChanceAssessment> = transaction {
+    override fun deleteChanceAssessmentById(assessmentId: String): Result<ChanceAssessment> = db.transaction {
         val assessment = getChanceAssessmentById(assessmentId)
         ChanceAssessments.deleteWhere { id eq assessmentId }
         assessment
@@ -100,15 +94,15 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
             .single()
     }
 
-    override fun clearAnxieties(): Result<Long> = transaction {
+    override fun clearAnxieties(): Result<Long> = db.transaction {
         Anxieties.deleteAll().toLong()
     }
 
-    override fun clearResolutions(): Result<Long> = transaction {
+    override fun clearResolutions(): Result<Long> = db.transaction {
         Resolutions.deleteAll().toLong()
     }
 
-    override fun clearChanceAssessments(): Result<Long> = transaction {
+    override fun clearChanceAssessments(): Result<Long> = db.transaction {
         ChanceAssessments.deleteAll().toLong()
     }
 
@@ -116,7 +110,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         return Result.success(randomPronouncable(3, 5))
     }
 
-    override fun getNextChanceAssessmentId(anxietyId: String): Result<String> = transaction{
+    override fun getNextChanceAssessmentId(anxietyId: String): Result<String> = db.transaction {
         ChanceAssessments
             .selectAll()
             .where { ChanceAssessments.anxietyId eq anxietyId }
@@ -124,7 +118,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
             .toString()
     }
 
-    override fun getAnxietyById(anxietyId: String): Result<Anxiety> = transaction {
+    override fun getAnxietyById(anxietyId: String): Result<Anxiety> = db.transaction {
         Anxieties
             .leftJoin(Resolutions, { Anxieties.id }, { Resolutions.anxietyId })
             .leftJoin(ChanceAssessments, { Anxieties.id }, { ChanceAssessments.anxietyId })
@@ -137,7 +131,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
             .singleOrNull() ?: throw NoSuchAnxietyException(anxietyId)
     }
 
-    override fun getAnxieties(): Result<List<Anxiety>> = transaction {
+    override fun getAnxieties(): Result<List<Anxiety>> = db.transaction {
         Anxieties
             .leftJoin(Resolutions, { Anxieties.id }, { Resolutions.anxietyId })
             .leftJoin(ChanceAssessments, { Anxieties.id }, { ChanceAssessments.anxietyId })
@@ -151,7 +145,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
     private fun mapAnxiety(row: ResultRow): Anxiety {
         return Anxiety(
             description = row[Anxieties.description],
-            id=row[Anxieties.id],
+            id = row[Anxieties.id],
             created = row[Anxieties.created].asInstant(),
             resolution = mapResolution(row),
             chanceAssessments = listOf()

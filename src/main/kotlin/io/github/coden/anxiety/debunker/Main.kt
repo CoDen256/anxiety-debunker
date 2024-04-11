@@ -1,5 +1,7 @@
 package io.github.coden.anxiety.debunker
 
+import com.sksamuel.hoplite.ConfigLoaderBuilder
+import com.sksamuel.hoplite.addFileSource
 import io.github.coden.anxiety.debunker.core.impl.DefaultAnxietyAnalyser
 import io.github.coden.anxiety.debunker.core.impl.DefaultAnxietyAssessor
 import io.github.coden.anxiety.debunker.core.impl.DefaultAnxietyHolder
@@ -7,21 +9,24 @@ import io.github.coden.anxiety.debunker.core.impl.DefaultAnxietyResolver
 import io.github.coden.anxiety.debunker.core.persistance.AnxietyRepository
 import io.github.coden.anxiety.debunker.inmemory.InMemoryAnxietyRepository
 import io.github.coden.anxiety.debunker.postgres.AnxietyDatabaseRepository
-import io.github.coden.anxiety.debunker.postgres.DatasourceConfig
-import io.github.coden.anxiety.debunker.postgres.database
-import io.github.coden.anxiety.debunker.telegram.TelegramBotConfig
-import io.github.coden.anxiety.debunker.telegram.TelegramBotConsole
 import io.github.coden.anxiety.debunker.telegram.bot.AnxietyDebunkerTelegramBot
 import io.github.coden.anxiety.debunker.telegram.bot.AnxietyRecorderTelegramBot
-import io.github.coden.anxiety.debunker.telegram.db.AnxietyDBContext
+import io.github.coden.anxiety.debunker.telegram.db.AnxietyBotDB
 import io.github.coden.anxiety.debunker.telegram.formatter.AnxietyTelegramFormatter
-import com.sksamuel.hoplite.ConfigLoaderBuilder
-import com.sksamuel.hoplite.addFileSource
+import io.github.coden.database.DatasourceConfig
+import io.github.coden.database.database
+import io.github.coden.telegram.abilities.TelegramBotConfig
+import io.github.coden.telegram.run.TelegramBotConsole
+
+data class RepositoryConfig(
+    val inmemory: Boolean = true,
+    val datasource: DatasourceConfig?
+)
 
 data class Config(
     val debunker: TelegramBotConfig,
     val recorder: TelegramBotConfig,
-    val datasource: DatasourceConfig
+    val repo: RepositoryConfig
 )
 
 fun config(): Config{
@@ -31,41 +36,41 @@ fun config(): Config{
         .loadConfigOrThrow<Config>()
 }
 
-fun repo(datasource: DatasourceConfig): AnxietyRepository {
-    if (datasource.inmemory) return InMemoryAnxietyRepository()
-    return AnxietyDatabaseRepository(database(datasource))
+fun repo(repo: RepositoryConfig): AnxietyRepository {
+    if (repo.inmemory) return InMemoryAnxietyRepository()
+    return AnxietyDatabaseRepository(database(repo.datasource!!))
 }
 
 fun main() {
     val config = config()
-    val repository: AnxietyRepository = repo(config.datasource)
+    val repository: AnxietyRepository = repo(config.repo)
 
     val resolver = DefaultAnxietyResolver(repository)
     val holder = DefaultAnxietyHolder(repository)
     val analyser = DefaultAnxietyAnalyser(repository)
     val assessor = DefaultAnxietyAssessor(repository)
     val formatter = AnxietyTelegramFormatter()
-    val debunkerDb = AnxietyDBContext("debunker.db")
-    val recorderDb = AnxietyDBContext("recorder.db")
+    val debunkerDb = AnxietyBotDB("debunker.db")
+    val recorderDb = AnxietyBotDB("recorder.db")
 
     val debunker = AnxietyDebunkerTelegramBot(
         config.debunker,
+        debunkerDb,
         analyser,
         holder,
         resolver,
         assessor,
         formatter,
-        debunkerDb,
     )
 
     val recorder = AnxietyRecorderTelegramBot(
         config.recorder,
+        recorderDb,
         analyser,
         holder,
         resolver,
         assessor,
         formatter,
-        recorderDb,
     )
 
     val console = TelegramBotConsole(
