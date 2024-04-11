@@ -216,7 +216,8 @@ class AnxietyDebunkerTelegramBot(
 
         val anxiety = analyser
             .anxiety(GetAnxietyRequest(anxietyId))
-            .getOrThrow()
+            .getOrNull()
+            ?: return markDeleted(anxietyId, chatId, targets)
 
         val markup = markupFromResolution(anxiety.resolution)
 

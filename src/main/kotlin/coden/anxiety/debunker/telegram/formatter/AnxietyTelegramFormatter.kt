@@ -38,7 +38,7 @@ class AnxietyTelegramFormatter: AnxietyFormatter {
     }
 
     override fun formatDeletedAnxiety(id: String): String {
-        return "*Anxiety* #${id} - `❌REMOVED`"
+        return "*Anxiety* `#${id}` - `❌REMOVED`"
     }
 
     override fun formatUpdatedAnxiety(id: String): String {
