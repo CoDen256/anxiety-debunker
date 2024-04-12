@@ -1,5 +1,6 @@
 package io.github.coden.anxiety.debunker.telegram.formatter
 
+import io.github.coden.anxiety.debunker.core.api.AnxietyEntityResponse
 import io.github.coden.anxiety.debunker.core.api.AnxietyListResponse
 import io.github.coden.anxiety.debunker.core.api.AnxietyResolutionResponse
 import io.github.coden.anxiety.debunker.core.api.AnxietyResolutionType
@@ -16,49 +17,95 @@ private const val MAX_CHARS_WITHOUT_BUTTON = 73
 
 class AnxietyTelegramFormatter : AnxietyFormatter {
 
-    private val formatter = DateTimeFormatter.ofPattern("d MMM HH:mm")
-    private val short = DateTimeFormatter.ofPattern("dd.MM-HH:mm")
+    private val default = DateTimeFormatter.ofPattern("d MMM HH:mm")
 
-    // 🟢 It is appendicitis. It hurts on the right side down. Exactly where it
-    // 🔴 Hello this is an anxi ety Hello 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 78
-    override fun tableWithResolutions(response: AnxietyListResponse): StyledString {
+    private fun Instant.str(formatter: DateTimeFormatter): String {
+        return formatter.format(this.atZone(ZoneId.of("CET")))
+    }
+
+    private fun Instant.str(pattern: String): String {
+        return str(DateTimeFormatter.ofPattern(pattern))
+    }
+
+    override fun table(response: AnxietyListResponse): StyledString {
+        return response.asTable("created", "id", "description"){
+            val res = formatTableResolution(it.resolution)
+            arrayOf("$res ${it.created.str("dd.MM.YY")}","#${it.id}", it.description.take(15))
+        }
+    }
+
+    override fun tableConcise(response: AnxietyListResponse): StyledString {
+        return response.asTable("id", "description"){
+            val res = formatTableResolution(it.resolution)
+            arrayOf("$res #${it.id}", it.description.take(29))
+        }
+    }
+
+    private fun AnxietyListResponse.asTable(vararg headers: String, formatter: (AnxietyEntityResponse) -> Array<String>): StyledString {
+        val table = PrettyTable(*headers)
+        for (anxiety in anxieties.sortedBy { it.created }) {
+            table.addRow(*formatter.invoke(anxiety))
+        }
+        return table.toString().styled(ParseMode.HTML).snippet()
+    }
+
+    override fun listVerbose(response: AnxietyListResponse): StyledString {
+        return response.asList("\n\n\n") { r, id, c, desc ->
+            val res = resolution(r)
+            val created = c.str("d MMMM YYYY HH:mm")
+            append("`#${id}`\n")
+            append("$res $created".snippet(ParseMode.MARKDOWN))
+            append("\n${desc.take(MAX_CHARS_WITHOUT_BUTTON-1).strip()}..".snippet(ParseMode.MARKDOWN))
+        }
+    }
+
+    override fun list(response: AnxietyListResponse): StyledString {
+        return response.asList("\n") { r, id, c, desc ->
+            val res = resolution(r)
+            append(
+                ("$res   $id\n${desc}"
+                    .take(MAX_CHARS_WITHOUT_BUTTON)
+                    .strip() + "..")
+                    .snippet(ParseMode.MARKDOWN))
+        }
+
+    }
+
+    override fun listConcise(response: AnxietyListResponse): StyledString {
+        return response.asList("\n") {r, id, c, desc ->
+            val res = resolution(r)
+            append(
+                ("$res ${id} ${desc}"
+                    .take(MAX_CHARS_WITHOUT_BUTTON-2)
+                    .strip()
+                        + "..")
+                    .replace(" ", " ")
+                    .snippet(ParseMode.MARKDOWN))
+        }
+    }
+
+    override fun listVeryConcise(response: AnxietyListResponse): StyledString {
+        return response.asList("\n") {r, id, c, desc ->
+            val res = resolution(r)
+            append(
+                ("$res ${id.padEnd(5)} · ${desc.take(23)}.."
+                    .strip()
+                    .padEnd(33)
+
+                        + "")
+                    .replace(" ", " ")
+                    .snippet(ParseMode.MARKDOWN))
+        }
+    }
+
+    private fun AnxietyListResponse.asList(separator: String, formatter: StringBuilder.(AnxietyResolutionResponse, String, Instant, String) -> Unit): StyledString {
         val result = StringBuilder()
-        for (anxiety in response.anxieties.sortedBy { it.created }) {
-            val res = resolution(anxiety.resolution)
-            val created = short.format(anxiety.created.atZone(ZoneId.of("CET")))
-            result
-                .append("$res$created".snippet(ParseMode.MARKDOWN))
-                .append("\n`#${anxiety.id}`\n")
-                .append("`${anxiety.description}`")
-//                .append(
-//                    ("${created}\n$res\n${anxiety.description}"
-//                        .take(MAX_CHARS_WITHOUT_BUTTON-1-3)
-//                        + "...")
-//                        .snippet(ParseMode.MARKDOWN)
-//                )
-                .append("\n\n\n")
+        for (anxiety in anxieties.sortedBy { it.created }) {
+            formatter.invoke(result, anxiety.resolution, anxiety.id, anxiety.created, anxiety.description)
+            result.append(separator)
         }
-        result.dropLast(1)
+        result.dropLast(separator.length)
         return result.toString().styled(ParseMode.MARKDOWN)
-    }
-
-    private fun asTable(response: AnxietyListResponse): StyledString {
-        val table = PrettyTable("created", "id", "anxiety")
-        for (anxiety in response.anxieties.sortedBy { it.created }) {
-            val created = short.format(anxiety.created.atZone(ZoneId.of("CET")))
-            val res = resolution(anxiety.resolution)
-            table.addRow("$res $created", "#${anxiety.id}", anxiety.description.take(15))
-        }
-        return table.toString().styled(ParseMode.HTML).snippet()
-    }
-
-    override fun tableShort(response: AnxietyListResponse): StyledString {
-        val table = PrettyTable("id", "anxiety")
-        for (anxiety in response.anxieties.sortedBy { it.created }) {
-            val res = resolution(anxiety.resolution)
-            table.addRow("$res #${anxiety.id}", anxiety.description.take(20).padEnd(20, ' '))
-        }
-        return table.toString().styled(ParseMode.HTML).snippet()
     }
 
     override fun anxiety(
@@ -68,7 +115,7 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
         resolution: AnxietyResolutionResponse
     ): StyledString {
         return ("*Anxiety* `#${id}` ${resolution(resolution)}" +
-                "\n${formatter.format(created.atZone(ZoneId.of("CET")))}" +
+                "\n${created.str(default)}" +
                 "\n\n$description")
             .styled(ParseMode.MARKDOWN)
     }

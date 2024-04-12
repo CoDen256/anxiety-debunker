@@ -21,13 +21,28 @@ class AnxietyRecorderTelegramBot(
     ) : AnxietyDebunkerTelegramBot(config, db, analyser, holder, resolver, assessor, formatter)
 {
 
-    override fun anxietyStats():Ability = ability("stat") { upd ->
-        val anxieties = analyser
-            .anxieties(ListAnxietiesRequest())
-            .getOrThrow()
+    override fun anxietyStatsVerbose(): Ability = ability("list") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL){formatter.listVerbose(it)}
+    }
 
-        val table = formatter.tableShort(anxieties)
-        sender.send(table, upd.chat())
+    override fun anxietyStats(): Ability = ability("lis") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL) { formatter.list(it) }
+    }
+
+    override fun anxietyStatsConcise(): Ability = ability("ls") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL) {formatter.listConcise(it)}
+    }
+
+    override fun anxietyStatsVeryConcise(): Ability = ability("l") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL) {formatter.listVeryConcise(it)}
+    }
+
+    override fun anxietyStatsTable(): Ability = ability("table") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL) {formatter.table(it)}
+    }
+
+    override fun anxietyStatsTableConcise(): Ability = ability("tb") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL) {formatter.tableConcise(it)}
     }
 
     override fun onAllAnxieties() = ability("all") { upd ->

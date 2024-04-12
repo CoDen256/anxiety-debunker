@@ -30,13 +30,38 @@ open class AnxietyDebunkerTelegramBot(
     private val formatter: AnxietyFormatter,
 ) : BaseTelegramBot<AnxietyBotDB>(config, db){
 
-    open fun anxietyStats(): Ability = ability("stat") {
+
+    open fun anxietyStatsVerbose(): Ability = ability("list") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE){formatter.listVerbose(it)}
+    }
+
+    open fun anxietyStats(): Ability = ability("lis") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE) { formatter.list(it) }
+    }
+
+    open fun anxietyStatsConcise(): Ability = ability("ls") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE) {formatter.listConcise(it)}
+    }
+
+    open fun anxietyStatsVeryConcise(): Ability = ability("l") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE) {formatter.listVeryConcise(it)}
+    }
+
+    open fun anxietyStatsTable(): Ability = ability("table") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE) {formatter.table(it)}
+    }
+
+    open fun anxietyStatsTableConcise(): Ability = ability("tb") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE) {formatter.tableConcise(it)}
+    }
+
+    protected fun formatAndSendAnxieties(update: Update, filter: ChanceFilter, format: (AnxietyListResponse) -> (StyledString)) {
         val anxieties = analyser
-            .anxieties(ListAnxietiesRequest(chances = ChanceFilter.HIGHEST_CHANCE))
+            .anxieties(ListAnxietiesRequest(chances = filter))
             .getOrThrow()
 
-        val table = formatter.tableWithResolutions(anxieties)
-        sender.send(table, it.chat())
+        val table = format(anxieties)
+        sender.send(table, update.chat())
     }
 
 
