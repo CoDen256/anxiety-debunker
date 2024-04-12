@@ -9,8 +9,8 @@ import io.github.coden.anxiety.debunker.core.impl.DefaultAnxietyResolver
 import io.github.coden.anxiety.debunker.core.persistance.AnxietyRepository
 import io.github.coden.anxiety.debunker.inmemory.InMemoryAnxietyRepository
 import io.github.coden.anxiety.debunker.postgres.AnxietyDatabaseRepository
-import io.github.coden.anxiety.debunker.telegram.bot.AnxietyRecorderTelegramBot
 import io.github.coden.anxiety.debunker.telegram.bot.AnxietyDebunkerTelegramBot
+import io.github.coden.anxiety.debunker.telegram.bot.AnxietyRecorderTelegramBot
 import io.github.coden.anxiety.debunker.telegram.db.AnxietyBotDB
 import io.github.coden.anxiety.debunker.telegram.formatter.AnxietyTelegramFormatter
 import io.github.coden.database.DatasourceConfig

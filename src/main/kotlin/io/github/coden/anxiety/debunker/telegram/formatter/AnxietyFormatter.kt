@@ -11,5 +11,5 @@ interface AnxietyFormatter {
     fun resolution(resolution: AnxietyResolutionResponse): StyledString
     fun anxiety(id: String, created: Instant, description: String, resolution: AnxietyResolutionResponse): StyledString
     fun deletedAnxiety(id: String): StyledString
-    fun callbackAnswer(id: String): StyledString
+    fun callbackAnswer(id: String): String
 }

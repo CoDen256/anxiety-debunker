@@ -161,7 +161,7 @@ open class AnxietyDebunkerTelegramBot(
             .resolve(ResolveAnxietyRequest(anxiety, fulfilled))
             .getOrThrow()
 
-        sender.answerCallback(update, formatter.callbackAnswer(result.anxietyId).toString())
+        sender.answerCallback(update, formatter.callbackAnswer(result.anxietyId))
 
         singleThreadScope.launch {
             syncAnxietyMessages(result.anxietyId, update.chat())
