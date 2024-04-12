@@ -27,13 +27,15 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
             val res = resolution(anxiety.resolution)
             val created = short.format(anxiety.created.atZone(ZoneId.of("CET")))
             result
-                .append("`#${anxiety.id}`\n")
-                .append(
-                    ("${created}\n$res\n${anxiety.description}"
-                        .take(MAX_CHARS_WITHOUT_BUTTON-1-3)
-                        + "...")
-                        .snippet(ParseMode.MARKDOWN)
-                )
+                .append("$res$created".snippet(ParseMode.MARKDOWN))
+                .append("\n`#${anxiety.id}`\n")
+                .append("`${anxiety.description}`")
+//                .append(
+//                    ("${created}\n$res\n${anxiety.description}"
+//                        .take(MAX_CHARS_WITHOUT_BUTTON-1-3)
+//                        + "...")
+//                        .snippet(ParseMode.MARKDOWN)
+//                )
                 .append("\n\n\n")
         }
         result.dropLast(1)
