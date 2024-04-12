@@ -12,8 +12,6 @@ import kotlinx.coroutines.launch
 import org.telegram.abilitybots.api.objects.Ability
 import org.telegram.abilitybots.api.objects.Flag
 import org.telegram.abilitybots.api.objects.Reply
-import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import kotlin.random.Random
@@ -155,7 +153,7 @@ open class AnxietyDebunkerTelegramBot(
             .getAnxietyByBotMessage(target)
             .getOrThrow()
 
-        if (!fulfilled and (Random.nextInt(0, 10) == 0)){
+        if (!fulfilled and (Random.nextInt(0, 4) == 0)){
             sender.sendMd("\uD83C\uDF89", update.chatId())
         }
 
@@ -163,12 +161,8 @@ open class AnxietyDebunkerTelegramBot(
             .resolve(ResolveAnxietyRequest(anxiety, fulfilled))
             .getOrThrow()
 
-        sender.execute(
-            AnswerCallbackQuery.builder().apply {
-                callbackQueryId(update.callbackQuery.id)
-                text(formatter.formatUpdatedAnxiety(result.anxietyId))
-            }.build(),
-        )
+        sender.answerCallback(update, formatter.formatUpdatedAnxiety(result.anxietyId))
+
         singleThreadScope.launch {
             syncAnxietyMessages(result.anxietyId, update.chatId())
         }
@@ -182,10 +176,7 @@ open class AnxietyDebunkerTelegramBot(
         db().deleteLinks(anxietyId)
 
         for (target in targets) {
-            sender.execute(DeleteMessage.builder().apply {
-                messageId(target.id)
-                chatId(update.chatId())
-            }.build())
+            sender.deleteMessage(target, update.chatId())
         }
     }
 
@@ -222,7 +213,7 @@ open class AnxietyDebunkerTelegramBot(
         }
     }
 
-    private fun markupFromResolution(resolution: AnxietyResolutionResponse): InlineKeyboardMarkup {
+    protected fun markupFromResolution(resolution: AnxietyResolutionResponse): InlineKeyboardMarkup {
         val markup = when (resolution.type) {
             AnxietyResolutionType.UNRESOLVED -> withNewAnxietyButtons()
             else -> withResolvedAnxietyButtons()

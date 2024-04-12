@@ -28,7 +28,7 @@ class AnxietyRecorderTelegramBot(
             .getOrThrow()
 
         val table = formatter.formatTableShort(anxieties).asCodeSnippet()
-        sender.sendHtml(table, getChatId(upd))
+        sender.sendHtml(table, upd.chatId())
     }
 
     override fun onAllAnxieties() = ability("all") { upd ->
@@ -58,9 +58,11 @@ class AnxietyRecorderTelegramBot(
             newAnxiety.description,
             resolution
         )
-
         val ownerMessage = upd.message.asOwner()
-        val botMessage = sender.sendMd(response, getChatId(upd)).asBot()
+        val replyMarkup = markupFromResolution(resolution)
+        val botMessage = sender
+            .sendMd(response, upd.chatId(), replyMarkup)
+            .asBot()
         db().addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
     }
 }
