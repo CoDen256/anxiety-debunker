@@ -12,8 +12,7 @@ const val OWNER_ANXIETY_MESSAGES = "OWNER_ANXIETY_MESSAGES"
 const val BOT_ANXIETY_MESSAGES = "BOT_ANXIETY_MESSAGES"
 
 open class AnxietyBotDB(filename: String) :
-    MapDBContext(db(filename)), BotDB
-{
+    MapDBContext(db(filename)), BotDB {
 
     private val ownerMessages
         get() = getMap<OwnerMessage, String>(OWNER_ANXIETY_MESSAGES)
@@ -22,16 +21,19 @@ open class AnxietyBotDB(filename: String) :
         get() = getSet<AnxietyLinkMessage>(BOT_ANXIETY_MESSAGES)
 
     fun addAnxietyToMessagesLink(anxietyId: String, inMessage: OwnerMessage, outMessage: BotMessage) {
-        addOwnerMessageLink(anxietyId, inMessage)
-        addBotMessageLink(anxietyId, outMessage)
+        ownerMessages[inMessage] = anxietyId
+        botMessages.add(AnxietyLinkMessage(outMessage, anxietyId))
+        commit()
     }
 
-    fun addOwnerMessageLink(anxietyId: String, ownerMessage: OwnerMessage) {
+    private fun addOwnerMessageLink(anxietyId: String, ownerMessage: OwnerMessage) {
         ownerMessages[ownerMessage] = anxietyId
+        commit()
     }
 
     fun addBotMessageLink(anxietyId: String, ownerMessage: BotMessage) {
         botMessages.add(AnxietyLinkMessage(ownerMessage, anxietyId))
+        commit()
     }
 
     fun getOwnerMessageByAnxiety(anxietyId: String): Result<OwnerMessage> {
@@ -67,7 +69,7 @@ open class AnxietyBotDB(filename: String) :
             .filterValues { it == anxietyId }
             .toList()
             .forEach { ownerMessages.remove(it.first) }
-
+        commit()
         return Result.success(Unit)
     }
 }

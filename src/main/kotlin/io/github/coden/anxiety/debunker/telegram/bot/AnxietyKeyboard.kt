@@ -1,22 +1,22 @@
 package io.github.coden.anxiety.debunker.telegram.bot
 
+import io.github.coden.telegram.keyboard.Keyboard
 import io.github.coden.telegram.keyboard.KeyboardButton
 import io.github.coden.telegram.keyboard.keyboard
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 
-fun withNewAnxietyButtons(): InlineKeyboardMarkup {
+fun withNewAnxietyButtons(): Keyboard {
     return keyboard {
         row { b(FULFILL); b(UNFULFILL) }
     }
 }
 
-fun withResolvedAnxietyButtons(): InlineKeyboardMarkup {
+fun withResolvedAnxietyButtons(): Keyboard {
     return keyboard {
         row { b(UNRESOLVE) }
     }
 }
 
-fun withDeletedAnxietyButtons(): InlineKeyboardMarkup {
+fun withDeletedAnxietyButtons(): Keyboard {
     return keyboard {
         row { b(DELETE_MESSAGE) }
     }

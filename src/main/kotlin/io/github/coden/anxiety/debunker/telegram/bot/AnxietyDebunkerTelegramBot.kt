@@ -6,14 +6,16 @@ import io.github.coden.anxiety.debunker.telegram.formatter.AnxietyFormatter
 import io.github.coden.telegram.abilities.*
 import io.github.coden.telegram.db.BotMessage
 import io.github.coden.telegram.db.BotMessage.Companion.asBot
+import io.github.coden.telegram.db.Chat
 import io.github.coden.telegram.db.OwnerMessage.Companion.asOwner
+import io.github.coden.telegram.keyboard.Keyboard
+import io.github.coden.telegram.senders.*
 import io.github.coden.utils.singleThreadScope
 import kotlinx.coroutines.launch
 import org.telegram.abilitybots.api.objects.Ability
 import org.telegram.abilitybots.api.objects.Flag
 import org.telegram.abilitybots.api.objects.Reply
 import org.telegram.telegrambots.meta.api.objects.Update
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import kotlin.random.Random
 
 // TODO Reload list on edited
@@ -33,8 +35,8 @@ open class AnxietyDebunkerTelegramBot(
             .anxieties(ListAnxietiesRequest(chances = ChanceFilter.HIGHEST_CHANCE))
             .getOrThrow()
 
-        val table = formatter.formatTableWithResolutions(anxieties).asCodeSnippet()
-        sender.sendHtml(table, it.chatId())
+        val table = formatter.tableWithResolutions(anxieties)
+        sender.send(table, it.chat())
     }
 
 
@@ -53,22 +55,22 @@ open class AnxietyDebunkerTelegramBot(
     }
 
     protected fun displayAnxietyAsMessage(anxiety: AnxietyEntityResponse, upd: Update) {
-        val response = formatter.formatAnxiety(
+        val response = formatter.anxiety(
             anxiety.id,
             anxiety.created,
             anxiety.description,
             anxiety.resolution
         )
 
-        val owner = db().getOwnerMessageByAnxiety(anxiety.id).getOrNull()
-        val replyMarkup = markupFromResolution(anxiety.resolution)
+        val ownerMessage = db().getOwnerMessageByAnxiety(anxiety.id).getOrNull()
+        val keyboard = keyboardFromResolution(anxiety.resolution)
         val botMessage = sender
-            .sendMd(response, upd.chatId(), replyMarkup, replyTo = owner?.id)
-            .asBot()
+            .send(response, upd.chat(), keyboard, ownerMessage)
+
         db().addBotMessageLink(anxiety.id, botMessage)
     }
 
-    open fun onAnxiety(): Reply = replyOn({ justText(it) }) { upd ->
+    open fun onAnxiety(): Reply = replyOn({ isJustText(it) }) { upd ->
         silent.send("Damn it sucks \uD83D\uDE14\nBut I got you!", upd.chatId())
 
         val description = cleanText(upd)
@@ -86,7 +88,7 @@ open class AnxietyDebunkerTelegramBot(
             .assess(NewChanceAssessmentRequest(ChanceAssessment.HIGHEST, newAnxiety.id))
             .getOrThrow()
 
-        val response = formatter.formatAnxiety(
+        val response = formatter.anxiety(
             newAnxiety.id,
             newAnxiety.created,
             newAnxiety.description,
@@ -94,10 +96,8 @@ open class AnxietyDebunkerTelegramBot(
         )
 
         val ownerMessage = upd.message.asOwner()
-        val replyMarkup = markupFromResolution(resolution)
-        val botMessage = sender
-            .sendMd(response, upd.chatId(), replyMarkup)
-            .asBot()
+        val keyboard = keyboardFromResolution(resolution)
+        val botMessage = sender.send(response, upd.chat(), keyboard)
         db().addAnxietyToMessagesLink(newAnxiety.id, ownerMessage, botMessage)
     }
 
@@ -111,7 +111,7 @@ open class AnxietyDebunkerTelegramBot(
             .update(UpdateAnxietyRequest(anxiety, upd.editedMessage.text))
             .getOrThrow()
 
-        syncAnxietyMessages(updated.id, upd.chatId())
+        syncAnxietyMessages(updated.id, upd.chat())
     }
 
     fun onDeletedAnxiety(): Reply = replyOnReaction("\uD83D\uDC4E") { upd ->
@@ -121,7 +121,7 @@ open class AnxietyDebunkerTelegramBot(
 
         val deleted = holder.delete(DeleteAnxietyRequest(anxietyId)).getOrThrow()
 
-        syncAnxietyMessages(deleted.id, upd.chatId(), true)
+        syncAnxietyMessages(deleted.id, upd.chat(), true)
     }
 
     fun onCallback(): Reply = replyOnCallback { update, data ->
@@ -144,7 +144,7 @@ open class AnxietyDebunkerTelegramBot(
             .unresolve(UnresolveAnxietyRequest(anxiety))
             .getOrThrow()
 
-        syncAnxietyMessages(result.anxietyId, update.chatId())
+        syncAnxietyMessages(result.anxietyId, update.chat())
     }
 
     private fun onResolve(update: Update, fulfilled: Boolean) {
@@ -154,17 +154,17 @@ open class AnxietyDebunkerTelegramBot(
             .getOrThrow()
 
         if (!fulfilled and (Random.nextInt(0, 4) == 0)){
-            sender.sendMd("\uD83C\uDF89", update.chatId())
+            sender.send("\uD83C\uDF89", update.chat())
         }
 
         val result = resolver
             .resolve(ResolveAnxietyRequest(anxiety, fulfilled))
             .getOrThrow()
 
-        sender.answerCallback(update, formatter.formatUpdatedAnxiety(result.anxietyId))
+        sender.answerCallback(update, formatter.callbackAnswer(result.anxietyId).toString())
 
         singleThreadScope.launch {
-            syncAnxietyMessages(result.anxietyId, update.chatId())
+            syncAnxietyMessages(result.anxietyId, update.chat())
         }
     }
 
@@ -176,36 +176,36 @@ open class AnxietyDebunkerTelegramBot(
         db().deleteLinks(anxietyId)
 
         for (target in targets) {
-            sender.deleteMessage(target, update.chatId())
+            sender.deleteMessage(target, update.chat())
         }
     }
 
 
-    private fun syncAnxietyMessages(anxietyId: String, chatId: Long, deleted: Boolean=false) {
+    private fun syncAnxietyMessages(anxietyId: String, chat: Chat, deleted: Boolean=false) {
         val targets: Set<BotMessage> = db().getBotMessagesByAnxiety(anxietyId)
 
         if (deleted){
-            return markDeleted(anxietyId, chatId, targets)
+            return markDeleted(anxietyId, chat, targets)
         }
 
         val anxiety = analyser
             .anxiety(GetAnxietyRequest(anxietyId))
             .getOrNull()
-            ?: return markDeleted(anxietyId, chatId, targets)
+            ?: return markDeleted(anxietyId, chat, targets)
 
-        val markup = markupFromResolution(anxiety.resolution)
+        val keyboard = keyboardFromResolution(anxiety.resolution)
 
-        val message = formatter.formatAnxiety(
+        val message = formatter.anxiety(
             anxiety.id,
             anxiety.created,
             anxiety.description,
             anxiety.resolution
         )
 
-        val editBuilder = sender.editMdRequest(
+        val editBuilder = sender.editBuilder(
             message,
-            chatId,
-            replyMarkup = markup,
+            chat,
+            keyboard,
         )
 
         for (target in targets.sortedByDescending { it.id }) {
@@ -213,7 +213,7 @@ open class AnxietyDebunkerTelegramBot(
         }
     }
 
-    protected fun markupFromResolution(resolution: AnxietyResolutionResponse): InlineKeyboardMarkup {
+    protected fun keyboardFromResolution(resolution: AnxietyResolutionResponse): Keyboard {
         val markup = when (resolution.type) {
             AnxietyResolutionType.UNRESOLVED -> withNewAnxietyButtons()
             else -> withResolvedAnxietyButtons()
@@ -223,15 +223,15 @@ open class AnxietyDebunkerTelegramBot(
 
     private fun markDeleted(
         anxietyId: String,
-        chatId: Long,
+        chat: Chat,
         targets: Set<BotMessage>
     ) {
         for (target in targets.sortedByDescending { it.id }) {
-            sender.editMd(
-                target.id,
-                formatter.formatDeletedAnxiety(anxietyId),
-                chatId,
-                replyMarkup = withDeletedAnxietyButtons()
+            sender.edit(
+                formatter.deletedAnxiety(anxietyId),
+                chat,
+                target,
+                withDeletedAnxietyButtons()
             )
         }
     }
