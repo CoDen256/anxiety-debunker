@@ -12,6 +12,7 @@ target/
 *.iml
 *.ipr
 .idea
+*.db
 application.yml
 ./application.yml
 /application.yml
