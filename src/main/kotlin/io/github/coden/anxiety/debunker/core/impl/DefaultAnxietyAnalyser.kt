@@ -1,10 +1,8 @@
 package io.github.coden.anxiety.debunker.core.impl
 
 import io.github.coden.anxiety.debunker.core.api.*
-import io.github.coden.anxiety.debunker.core.persistance.Anxiety
-import io.github.coden.anxiety.debunker.core.persistance.AnxietyRepository
+import io.github.coden.anxiety.debunker.core.persistance.*
 import io.github.coden.anxiety.debunker.core.persistance.ChanceAssessment
-import io.github.coden.anxiety.debunker.core.persistance.Resolution
 import io.github.coden.utils.logResult
 import org.apache.logging.log4j.kotlin.Logging
 
@@ -42,6 +40,7 @@ class DefaultAnxietyAnalyser
             anxiety.created,
             anxiety.chanceAssessments.map { mapChanceAssessment(it) },
             mapResolution(anxiety.resolution),
+            anxiety.detail?.let { mapDetail(it) }
         )
     }
 
@@ -55,5 +54,14 @@ class DefaultAnxietyAnalyser
 
     private fun mapChanceAssessment(chance: ChanceAssessment): AnxietyChanceAssessmentResponse {
         return AnxietyChanceAssessmentResponse(chance.chance.level, chance.created)
+    }
+
+    private fun mapDetail(detail: AnxietyDetail): AnxietyDetailResponse {
+        return AnxietyDetailResponse(
+            detail.trigger,
+            detail.bodyResponse,
+            detail.anxietyResponse,
+            detail.alternativeThoughts
+        )
     }
 }

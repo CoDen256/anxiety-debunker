@@ -58,6 +58,7 @@ data class AnxietyEntityResponse(
     val created: Instant,
     val chances: List<AnxietyChanceAssessmentResponse>,
     val resolution: AnxietyResolutionResponse,
+    val details: AnxietyDetailResponse?,
 ) : AnxietyAnalyserResponse {
     fun latestChanceAssessment(): AnxietyChanceAssessmentResponse? {
         return chances.lastOrNull()
@@ -66,5 +67,6 @@ data class AnxietyEntityResponse(
 
 data class AnxietyChanceAssessmentResponse(val level: Int, val created: Instant) : AnxietyAnalyserResponse
 data class AnxietyResolutionResponse(val type: AnxietyResolutionType, val resolved: Instant?) : AnxietyAnalyserResponse
+data class AnxietyDetailResponse(val trigger: String, val bodyResponse: String, val anxietyResponse: String, val alternativeThoughts: String) : AnxietyAnalyserResponse
 enum class AnxietyResolutionType { FULFILLED, UNFULFILLED, UNRESOLVED }
 data class AnxietyListResponse(val anxieties: List<AnxietyEntityResponse>) : AnxietyAnalyserResponse

@@ -96,6 +96,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
 
     override fun deleteAnxietyById(anxietyId: String): Result<Anxiety> = db.transaction {
         val anxiety = getAnxietyById(anxietyId)
+        AnxietyDetails.deleteWhere { AnxietyDetails.anxietyId eq anxietyId }
         Resolutions.deleteWhere { Resolutions.anxietyId eq anxietyId }
         ChanceAssessments.deleteWhere { ChanceAssessments.anxietyId eq anxietyId }
         Anxieties.deleteWhere { id eq anxietyId }
@@ -160,6 +161,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         Anxieties
             .leftJoin(Resolutions, { Anxieties.id }, { Resolutions.anxietyId })
             .leftJoin(ChanceAssessments, { Anxieties.id }, { ChanceAssessments.anxietyId })
+            .leftJoin(AnxietyDetails, { Anxieties.id }, { AnxietyDetails.anxietyId })
             .selectAll()
             .where { Anxieties.id eq anxietyId }
             .groupBy { mapAnxiety(it) }
@@ -173,6 +175,7 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         Anxieties
             .leftJoin(Resolutions, { Anxieties.id }, { Resolutions.anxietyId })
             .leftJoin(ChanceAssessments, { Anxieties.id }, { ChanceAssessments.anxietyId })
+            .leftJoin(AnxietyDetails, { Anxieties.id }, { AnxietyDetails.anxietyId })
             .selectAll()
             .groupBy { mapAnxiety(it) }
             .map { (key, value) ->
@@ -186,7 +189,8 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
             id = row[Anxieties.id],
             created = row[Anxieties.created].asInstant(),
             resolution = mapResolution(row),
-            chanceAssessments = listOf()
+            chanceAssessments = listOf(),
+            detail = mapDetail(row)
         )
     }
 

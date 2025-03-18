@@ -29,14 +29,14 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
 
     override fun table(response: AnxietyListResponse): StyledString {
         return response.asTable("created", "id", "description"){
-            val res = formatTableResolution(it.resolution)
+            val res = formatTableResolution(it.resolution.type)
             arrayOf("$res ${it.created.str("dd.MM.YY")}","#${it.id}", it.description.take(15))
         }
     }
 
     override fun tableConcise(response: AnxietyListResponse): StyledString {
         return response.asTable("id", "description"){
-            val res = formatTableResolution(it.resolution)
+            val res = formatTableResolution(it.resolution.type)
             arrayOf("$res #${it.id}", it.description.take(29))
         }
     }
@@ -51,7 +51,7 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
 
     override fun listVerbose(response: AnxietyListResponse): StyledString {
         return response.asList("\n\n\n") { r, id, c, desc ->
-            val res = resolution(r)
+            val res = resolution(r.type)
             val created = c.str("d MMMM YYYY HH:mm")
             append("`#${id}`\n")
             append("$res $created".snippet(ParseMode.MARKDOWN))
@@ -61,7 +61,7 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
 
     override fun list(response: AnxietyListResponse): StyledString {
         return response.asList("\n") { r, id, c, desc ->
-            val res = resolution(r)
+            val res = resolution(r.type)
             append(
                 ("$res   $id\n${desc}"
                     .take(MAX_CHARS_WITHOUT_BUTTON)
@@ -73,7 +73,7 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
 
     override fun listConcise(response: AnxietyListResponse): StyledString {
         return response.asList("\n") {r, id, c, desc ->
-            val res = resolution(r)
+            val res = resolution(r.type)
             append(
                 ("$res ${id} ${desc}"
                     .take(MAX_CHARS_WITHOUT_BUTTON-2)
@@ -86,7 +86,7 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
 
     override fun listVeryConcise(response: AnxietyListResponse): StyledString {
         return response.asList("\n") {r, id, c, desc ->
-            val res = resolution(r)
+            val res = resolution(r.type)
             append(
                 ("$res ${id.padEnd(5)} · ${desc.take(23)}.."
                     .strip()
@@ -109,15 +109,24 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
     }
 
     override fun anxiety(
-        id: String,
-        created: Instant,
-        description: String,
-        resolution: AnxietyResolutionResponse
+        anxiety: AnxietyEntity
     ): StyledString {
-        return ("*Anxiety* `#${id}` ${resolution(resolution)}" +
-                "\n${created.str(default)}" +
-                "\n\n$description")
+        return ("*Anxiety* `#${anxiety.id}` ${resolution(anxiety.resolution)}" +
+                "\n${anxiety.created.str(default)}" +
+                "\n\n${anxiety.description}${details(anxiety)}")
             .styled(ParseMode.MARKDOWN)
+    }
+
+    private fun details(anxiety: AnxietyEntity): String {
+        val trigger = anxiety.trigger ?: return ""
+        val body = anxiety.bodyResponse ?: return ""
+        val response = anxiety.anxietyResponse ?: return ""
+        val alternative = anxiety.alternativeThoughts ?: return ""
+        return "\n\n" +
+                "Trigger: $trigger\n" +
+                "Body response: $body\n" +
+                "Response: $response\n" +
+                "Alternative: $alternative"
     }
 
     override fun deletedAnxiety(id: String): StyledString {
@@ -128,16 +137,16 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
         return "#${id} - ✅ Successfuly updated"
     }
 
-    override fun resolution(resolution: AnxietyResolutionResponse): StyledString {
-        return when (resolution.type) {
+    override fun resolution(resolution: AnxietyResolutionType): StyledString {
+        return when (resolution) {
             AnxietyResolutionType.UNRESOLVED -> "\uD83D\uDD18"
             AnxietyResolutionType.FULFILLED -> "🔴"
             AnxietyResolutionType.UNFULFILLED -> "🟢"
         }.styled()
     }
 
-    private fun formatTableResolution(resolution: AnxietyResolutionResponse): StyledString {
-        return when (resolution.type) {
+    private fun formatTableResolution(resolution: AnxietyResolutionType): StyledString {
+        return when (resolution) {
             AnxietyResolutionType.UNRESOLVED -> "▫\uFE0F"
             AnxietyResolutionType.FULFILLED -> "🔴"
             AnxietyResolutionType.UNFULFILLED -> "🟢"
