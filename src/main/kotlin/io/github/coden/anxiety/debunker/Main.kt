@@ -2,31 +2,30 @@ package io.github.coden.anxiety.debunker
 
 import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.addFileSource
-import io.github.coden.anxiety.debunker.core.impl.DefaultAnxietyAnalyser
-import io.github.coden.anxiety.debunker.core.impl.DefaultAnxietyAssessor
-import io.github.coden.anxiety.debunker.core.impl.DefaultAnxietyHolder
-import io.github.coden.anxiety.debunker.core.impl.DefaultAnxietyResolver
+import io.github.coden.anxiety.debunker.core.impl.*
 import io.github.coden.anxiety.debunker.core.persistance.AnxietyRepository
 import io.github.coden.anxiety.debunker.inmemory.InMemoryAnxietyRepository
-import io.github.coden.anxiety.debunker.postgres.AnxietyDatabaseRepository
+import io.github.coden.anxiety.debunker.postgres.*
 import io.github.coden.anxiety.debunker.telegram.bot.AnxietyDebunkerTelegramBot
-import io.github.coden.anxiety.debunker.telegram.bot.AnxietyRecorderTelegramBot
 import io.github.coden.anxiety.debunker.telegram.db.AnxietyBotDB
 import io.github.coden.anxiety.debunker.telegram.formatter.AnxietyTelegramFormatter
 import io.github.coden.database.DatasourceConfig
 import io.github.coden.database.database
+import io.github.coden.database.transaction
 import io.github.coden.telegram.abilities.TelegramBotConfig
 import io.github.coden.telegram.run.TelegramBotConsole
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.transactions.TransactionManager
+
+data class Config(
+    val debunker: TelegramBotConfig,
+    val repo: RepositoryConfig
+)
 
 data class RepositoryConfig(
     val inmemory: Boolean = true,
     val datasource: DatasourceConfig?
-)
-
-data class Config(
-    val debunker: TelegramBotConfig,
-    val recorder: TelegramBotConfig,
-    val repo: RepositoryConfig
 )
 
 fun config(): Config{
@@ -38,7 +37,14 @@ fun config(): Config{
 
 fun repo(repo: RepositoryConfig): AnxietyRepository {
     if (repo.inmemory) return InMemoryAnxietyRepository()
-    return AnxietyDatabaseRepository(database(repo.datasource!!))
+    val db = database(repo.datasource!!)
+        return AnxietyDatabaseRepository(db)
+}
+
+fun Database.createTables() {
+    transaction {
+        TransactionManager.current().connection.prepareStatement("SET autocommit_before_ddl = on;", false).executeUpdate()
+        SchemaUtils.create(AnxietyDetails, Anxieties, Resolutions, ChanceAssessments) }
 }
 
 fun main() {
@@ -49,9 +55,9 @@ fun main() {
     val holder = DefaultAnxietyHolder(repository)
     val analyser = DefaultAnxietyAnalyser(repository)
     val assessor = DefaultAnxietyAssessor(repository)
+    val editor = DefaultAnxietyDetailEditor(repository)
     val formatter = AnxietyTelegramFormatter()
     val debunkerDb = AnxietyBotDB("debunker.db")
-    val recorderDb = AnxietyBotDB("recorder.db")
 
     val debunker = AnxietyDebunkerTelegramBot(
         config.debunker,
@@ -60,22 +66,13 @@ fun main() {
         holder,
         resolver,
         assessor,
+        editor,
         formatter,
     )
 
-    val recorder = AnxietyRecorderTelegramBot(
-        config.recorder,
-        recorderDb,
-        analyser,
-        holder,
-        resolver,
-        assessor,
-        formatter,
-    )
 
     val console = TelegramBotConsole(
-        debunker,
-        recorder
+        debunker
     )
 
     console.start()

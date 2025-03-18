@@ -7,5 +7,6 @@ data class Anxiety(
     val id: String,
     val created: Instant = Instant.now(),
     val resolution: Resolution? = null,
+    val detail: AnxietyDetail? = null,
     val chanceAssessments: List<ChanceAssessment> = emptyList()
 )

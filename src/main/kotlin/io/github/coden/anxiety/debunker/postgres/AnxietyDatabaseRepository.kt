@@ -12,7 +12,6 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 
 class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
 
-
     override fun saveAnxiety(anxiety: Anxiety): Result<Anxiety> = db.transaction {
         Anxieties.insert {
             it[id] = anxiety.id
@@ -41,6 +40,17 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         assessment
     }
 
+    override fun saveDetail(detail: AnxietyDetail): Result<AnxietyDetail> = db.transaction {
+        AnxietyDetails.insert {
+            it[anxietyId] = detail.anxietyId
+            it[trigger] = detail.trigger
+            it[bodyResponse] = detail.bodyResponse
+            it[anxietyResponse] = detail.anxietyResponse
+            it[alternativeThoughts] = detail.alternativeThoughts
+        }
+        detail
+    }
+
     override fun updateAnxiety(anxiety: Anxiety): Result<Anxiety> = db.transaction {
         Anxieties.update(where = { Anxieties.id eq anxiety.id }) {
             it[description] = anxiety.description
@@ -66,6 +76,24 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
             .single()
     }
 
+    override fun updateDetail(detail: AnxietyDetail): Result<AnxietyDetail> = db.transaction {
+        AnxietyDetails.update ( where = { AnxietyDetails.anxietyId eq detail.anxietyId } ){
+            it[trigger] = detail.trigger
+            it[bodyResponse] = detail.bodyResponse
+            it[anxietyResponse] = detail.anxietyResponse
+            it[alternativeThoughts] = detail.alternativeThoughts
+        }
+        getDetailById(detail.anxietyId)
+    }
+
+    private fun getDetailById(anxietyId: String): AnxietyDetail {
+        return AnxietyDetails
+            .selectAll()
+            .where { AnxietyDetails.anxietyId eq anxietyId }
+            .mapNotNull { mapDetail(it) }
+            .single()
+    }
+
     override fun deleteAnxietyById(anxietyId: String): Result<Anxiety> = db.transaction {
         val anxiety = getAnxietyById(anxietyId)
         Resolutions.deleteWhere { Resolutions.anxietyId eq anxietyId }
@@ -86,6 +114,12 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
         assessment
     }
 
+    override fun deleteDetailByAnxietyId(anxietyId: String): Result<AnxietyDetail> = db.transaction {
+        val detail = getDetailById(anxietyId)
+        AnxietyDetails.deleteWhere { AnxietyDetails.anxietyId eq anxietyId }
+        detail
+    }
+
     private fun getChanceAssessmentById(id: String): ChanceAssessment {
         return ChanceAssessments
             .selectAll()
@@ -104,6 +138,10 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
 
     override fun clearChanceAssessments(): Result<Long> = db.transaction {
         ChanceAssessments.deleteAll().toLong()
+    }
+
+    override fun clearDetails(): Result<Long> = db.transaction {
+        AnxietyDetails.deleteAll().toLong()
     }
 
     override fun getNextAnxietyId(): Result<String> {
@@ -158,6 +196,16 @@ class AnxietyDatabaseRepository(private val db: Database) : AnxietyRepository {
             anxietyId,
             row[Resolutions.fulfilled],
             row[Resolutions.created].asInstant()
+        )
+    }
+    private fun mapDetail(row: ResultRow): AnxietyDetail? {
+        val anxietyId = row.getOrNull(AnxietyDetails.anxietyId) ?: return null
+        return AnxietyDetail(
+            anxietyId,
+            row[AnxietyDetails.trigger],
+            row[AnxietyDetails.bodyResponse],
+            row[AnxietyDetails.anxietyResponse],
+            row[AnxietyDetails.alternativeThoughts]
         )
     }
 

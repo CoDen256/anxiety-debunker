@@ -4,7 +4,7 @@ import io.github.coden.anxiety.debunker.core.api.*
 import io.github.coden.anxiety.debunker.core.persistance.Anxiety
 import io.github.coden.anxiety.debunker.core.persistance.AnxietyRepository
 import io.github.coden.utils.flatMap
-import io.github.coden.utils.logInteraction
+import io.github.coden.utils.logResult
 import org.apache.logging.log4j.kotlin.Logging
 
 class DefaultAnxietyHolder(
@@ -16,7 +16,7 @@ class DefaultAnxietyHolder(
         return repository.getNextAnxietyId()
             .flatMap { id -> repository.saveAnxiety(Anxiety(request.description, id)) }
             .map { NewAnxietyResponse(it.id, it.description, it.created) }
-            .logInteraction(logger){ "Added new anxiety(${it.id})"}
+            .logResult(logger){ "Added new anxiety(${it.id})"}
     }
 
     override fun delete(request: DeleteAnxietyRequest): Result<DeleteAnxietyResponse> {
@@ -24,7 +24,7 @@ class DefaultAnxietyHolder(
 
         return repository.deleteAnxietyById(request.id)
             .map { DeleteAnxietyResponse(it.id) }
-            .logInteraction(logger){ "Removed anxiety(${it.id})"}
+            .logResult(logger){ "Removed anxiety(${it.id})"}
     }
 
     override fun update(request: UpdateAnxietyRequest): Result<UpdateAnxietyResponse> {
@@ -34,7 +34,7 @@ class DefaultAnxietyHolder(
             .getAnxietyById(request.id)
             .flatMap { repository.updateAnxiety(it.copy(description=request.description)) }
             .map { UpdateAnxietyResponse(it.id, it.description, it.created) }
-            .logInteraction(logger){ "Updated anxiety(${it.id})"}
+            .logResult(logger){ "Updated anxiety(${it.id})"}
     }
 
     override fun clear(request: ClearAnxietiesRequest): Result<ClearAnxietiesResponse> {
@@ -43,6 +43,6 @@ class DefaultAnxietyHolder(
         return repository
             .clearAnxieties()
             .map { ClearAnxietiesResponse(it) }
-            .logInteraction(logger){ "Cleared anxieties"}
+            .logResult(logger){ "Cleared anxieties"}
     }
 }

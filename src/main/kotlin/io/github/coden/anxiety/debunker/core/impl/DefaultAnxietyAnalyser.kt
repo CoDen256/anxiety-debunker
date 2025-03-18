@@ -5,7 +5,7 @@ import io.github.coden.anxiety.debunker.core.persistance.Anxiety
 import io.github.coden.anxiety.debunker.core.persistance.AnxietyRepository
 import io.github.coden.anxiety.debunker.core.persistance.ChanceAssessment
 import io.github.coden.anxiety.debunker.core.persistance.Resolution
-import io.github.coden.utils.logInteraction
+import io.github.coden.utils.logResult
 import org.apache.logging.log4j.kotlin.Logging
 
 class DefaultAnxietyAnalyser
@@ -18,7 +18,7 @@ class DefaultAnxietyAnalyser
         return anxietyRepository
             .getAnxietyById(request.id)
             .map { mapAnxietyToEntityResponse(it) }
-            .logInteraction(logger){ "Got anxiety ${it.id}..."}
+            .logResult(logger){ "Got anxiety ${it.id}..."}
     }
 
     override fun anxieties(request: ListAnxietiesRequest): Result<AnxietyListResponse> {
@@ -32,7 +32,7 @@ class DefaultAnxietyAnalyser
                 .filter { anxiety -> request.resolutions.invoke(anxiety.resolution) }
             }
             .map { AnxietyListResponse(it) }
-            .logInteraction(logger){ "Got all anxieties"}
+            .logResult(logger){ "Got all anxieties"}
     }
 
     private fun mapAnxietyToEntityResponse(anxiety: Anxiety): AnxietyEntityResponse {

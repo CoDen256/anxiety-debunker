@@ -20,39 +20,40 @@ import kotlin.random.Random
 
 // TODO Reload list on edited
 // TODO Severity
-open class AnxietyDebunkerTelegramBot(
+class AnxietyDebunkerTelegramBot(
     config: TelegramBotConfig,
     db: AnxietyBotDB,
     private val analyser: AnxietyAnalyser,
     private val holder: AnxietyHolder,
     private val resolver: AnxietyResolver,
     private val assessor: AnxietyAssessor,
+    private val detailEditor: AnxietyDetailEditor,
     private val formatter: AnxietyFormatter,
 ) : BaseTelegramBot<AnxietyBotDB>(config, db){
 
 
-    open fun anxietyStatsVerbose(): Ability = ability("list") { upd ->
-        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE){formatter.listVerbose(it)}
+    fun anxietyStatsVerbose(): Ability = ability("list") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL){formatter.listVerbose(it)}
     }
 
-    open fun anxietyStats(): Ability = ability("lis") { upd ->
-        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE) { formatter.list(it) }
+    fun anxietyStats(): Ability = ability("lis") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL) { formatter.list(it) }
     }
 
-    open fun anxietyStatsConcise(): Ability = ability("ls") { upd ->
-        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE) {formatter.listConcise(it)}
+    fun anxietyStatsConcise(): Ability = ability("ls") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL) {formatter.listConcise(it)}
     }
 
-    open fun anxietyStatsVeryConcise(): Ability = ability("l") { upd ->
-        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE) {formatter.listVeryConcise(it)}
+    fun anxietyStatsVeryConcise(): Ability = ability("l") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL) {formatter.listVeryConcise(it)}
     }
 
-    open fun anxietyStatsTable(): Ability = ability("table") { upd ->
-        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE) {formatter.table(it)}
+    fun anxietyStatsTable(): Ability = ability("table") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL) {formatter.table(it)}
     }
 
-    open fun anxietyStatsTableConcise(): Ability = ability("tb") { upd ->
-        formatAndSendAnxieties(upd, ChanceFilter.HIGHEST_CHANCE) {formatter.tableConcise(it)}
+    fun anxietyStatsTableConcise(): Ability = ability("tb") { upd ->
+        formatAndSendAnxieties(upd, ChanceFilter.ALL) {formatter.tableConcise(it)}
     }
 
     protected fun formatAndSendAnxieties(update: Update, filter: ChanceFilter, format: (AnxietyListResponse) -> (StyledString)) {
@@ -65,7 +66,7 @@ open class AnxietyDebunkerTelegramBot(
     }
 
 
-    open fun onAllAnxieties(): Ability = ability("all") { upd ->
+    fun onAllAnxieties(): Ability = ability("all") { upd ->
         analyser
             .anxieties(ListAnxietiesRequest(chances = ChanceFilter.HIGHEST_CHANCE))
             .getOrThrow()
@@ -95,7 +96,7 @@ open class AnxietyDebunkerTelegramBot(
         db().addBotMessageLink(anxiety.id, botMessage)
     }
 
-    open fun onAnxiety(): Reply = replyOn({ isJustText(it) }) { upd ->
+    fun onAnxiety(): Reply = replyOn({ isJustText(it) }) { upd ->
         silent.send("Damn it sucks \uD83D\uDE14\nBut I got you!", upd.chatId())
 
         val description = cleanText(upd)
@@ -238,7 +239,7 @@ open class AnxietyDebunkerTelegramBot(
         }
     }
 
-    protected fun keyboardFromResolution(resolution: AnxietyResolutionResponse): Keyboard {
+    private fun keyboardFromResolution(resolution: AnxietyResolutionResponse): Keyboard {
         val markup = when (resolution.type) {
             AnxietyResolutionType.UNRESOLVED -> withNewAnxietyButtons()
             else -> withResolvedAnxietyButtons()

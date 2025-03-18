@@ -2,7 +2,6 @@ package io.github.coden.anxiety.debunker.inmemory
 
 import io.github.coden.anxiety.debunker.core.persistance.*
 import io.github.coden.utils.notNullOrFailure
-import io.github.coden.utils.randomPronouncable
 import io.github.coden.utils.success
 
 class InMemoryAnxietyRepository : AnxietyRepository {
@@ -10,6 +9,7 @@ class InMemoryAnxietyRepository : AnxietyRepository {
     private val anxieties: MutableMap<String, Anxiety> = HashMap()
     private val resolutions: MutableMap<String, Resolution> = HashMap()
     private val chanceAssessments: MutableMap<String, ChanceAssessment> = HashMap()
+    private val anxietyDetails: MutableMap<String, AnxietyDetail> = HashMap()
 
     override fun saveAnxiety(anxiety: Anxiety): Result<Anxiety> {
         anxieties[anxiety.id] = anxiety
@@ -24,6 +24,11 @@ class InMemoryAnxietyRepository : AnxietyRepository {
     override fun saveChanceAssessment(assessment: ChanceAssessment): Result<ChanceAssessment> {
         chanceAssessments[assessment.id] = assessment
         return assessment.success()
+    }
+
+    override fun saveDetail(detail: AnxietyDetail): Result<AnxietyDetail> {
+        anxietyDetails[detail.anxietyId] = detail
+        return detail.success()
     }
 
     override fun updateAnxiety(anxiety: Anxiety): Result<Anxiety> {
@@ -48,6 +53,14 @@ class InMemoryAnxietyRepository : AnxietyRepository {
         }!!)
     }
 
+    override fun updateDetail(detail: AnxietyDetail): Result<AnxietyDetail> {
+        if (!anxietyDetails.containsKey(detail.anxietyId)) return Result.failure(NoSuchAnxietyException(detail.anxietyId))
+
+        return Result.success(anxietyDetails.compute(detail.anxietyId) {_, _ ->
+            detail
+        }!!)
+    }
+
     override fun deleteAnxietyById(anxietyId: String): Result<Anxiety> {
         return anxieties.remove(anxietyId).notNullOrFailure(NoSuchAnxietyException(anxietyId))
     }
@@ -58,6 +71,10 @@ class InMemoryAnxietyRepository : AnxietyRepository {
 
     override fun deleteChanceAssessmentById(assessmentId: String): Result<ChanceAssessment> {
         return chanceAssessments.remove(assessmentId).notNullOrFailure(NoSuchAnxietyException(assessmentId))
+    }
+
+    override fun deleteDetailByAnxietyId(anxietyId: String): Result<AnxietyDetail> {
+        return anxietyDetails.remove(anxietyId).notNullOrFailure(NoSuchAnxietyException(anxietyId))
     }
 
     override fun clearAnxieties(): Result<Long> {
@@ -78,6 +95,12 @@ class InMemoryAnxietyRepository : AnxietyRepository {
         return Result.success(size)
     }
 
+    override fun clearDetails(): Result<Long> {
+        val size = anxietyDetails.size.toLong()
+        anxietyDetails.clear()
+        return Result.success(size)
+    }
+
     override fun getNextAnxietyId(): Result<String> {
         return Result.success("mem-${anxieties.size}")
     }
@@ -93,6 +116,7 @@ class InMemoryAnxietyRepository : AnxietyRepository {
         val anxiety = anxieties[anxietyId]!!
         val resolution = resolutions[anxiety.id]
         val assessment = chanceAssessments.map { it.value }.filter { it.anxietyId == anxietyId }
+        val detail = anxietyDetails[anxiety.id]
 
         return Result.success(
             Anxiety(
@@ -100,7 +124,8 @@ class InMemoryAnxietyRepository : AnxietyRepository {
                 anxiety.description,
                 anxiety.created,
                 resolution,
-                assessment
+                detail,
+                assessment,
             )
         )
     }

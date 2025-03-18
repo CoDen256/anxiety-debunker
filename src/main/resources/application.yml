@@ -4,12 +4,6 @@ debunker:
   username: anxiety_debunker_bot
   intro: "Hi!!"
 
-recorder:
-  token: "<token>"
-  target: 1234567890
-  username: anxiety_recorder_bot
-  intro: "Hi!!"
-
 repo:
   inmemory: false
   datasource:
