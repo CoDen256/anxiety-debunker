@@ -111,10 +111,10 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
     override fun anxiety(
         anxiety: AnxietyEntity
     ): StyledString {
-        return ("*Anxiety* `#${anxiety.id}` ${resolution(anxiety.resolution)}" +
+        return ("<b>Anxiety</b> <code>#${anxiety.id}</code> ${resolution(anxiety.resolution)}" +
                 "\n${anxiety.created.str(default)}" +
                 "\n\n${anxiety.description}${details(anxiety)}")
-            .styled(ParseMode.MARKDOWN)
+            .styled(ParseMode.HTML)
     }
 
     private fun details(anxiety: AnxietyEntity): String {
@@ -123,10 +123,10 @@ class AnxietyTelegramFormatter : AnxietyFormatter {
         val response = anxiety.anxietyResponse ?: return ""
         val alternative = anxiety.alternativeThoughts ?: return ""
         return "\n\n" +
-                "Trigger: $trigger\n" +
-                "Body response: $body\n" +
-                "Response: $response\n" +
-                "Alternative: $alternative"
+                "<b><i>Trigger</i></b>: $trigger\n\n" +
+                "<b><i>Body</i></b>: $body\n\n" +
+                "<b><i>Response</i></b>: $response\n\n" +
+                "<b><i>Alternative</i></b>: $alternative"
     }
 
     override fun deletedAnxiety(id: String): StyledString {
