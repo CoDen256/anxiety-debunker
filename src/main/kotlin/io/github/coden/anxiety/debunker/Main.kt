@@ -2,6 +2,7 @@ package io.github.coden.anxiety.debunker
 
 import com.sksamuel.hoplite.ConfigLoaderBuilder
 import com.sksamuel.hoplite.addFileSource
+import com.sksamuel.hoplite.addResourceSource
 import io.github.coden.anxiety.debunker.core.impl.*
 import io.github.coden.anxiety.debunker.core.persistance.AnxietyRepository
 import io.github.coden.anxiety.debunker.inmemory.InMemoryAnxietyRepository
@@ -30,7 +31,7 @@ data class RepositoryConfig(
 
 fun config(): Config{
     return ConfigLoaderBuilder.default()
-        .addFileSource("application.yml")
+        .addResourceSource("/application.yml")
         .build()
         .loadConfigOrThrow<Config>()
 }

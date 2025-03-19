@@ -16,6 +16,7 @@ target/
 application.yml
 ./application.yml
 /application.yml
+/src/main/resources/application.yml
 
 ### Eclipse ###
 .apt_generated
@@ -38,6 +39,3 @@ build/
 
 ### VS Code ###
 .vscode/
-
-### Mac OS ###
-.DS_Store
