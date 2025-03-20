@@ -6,7 +6,7 @@
 
     <groupId>coden</groupId>
     <artifactId>anxiety-debunker</artifactId>
-    <version>2.0</version>
+    <version>2.1</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -137,6 +137,11 @@
             <groupId>com.github.skebir</groupId>
             <artifactId>prettytable</artifactId>
             <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.jsoizo</groupId>
+            <artifactId>kotlin-csv-jvm</artifactId>
+            <version>1.10.0</version>
         </dependency>
 
 
