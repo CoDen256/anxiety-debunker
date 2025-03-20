@@ -96,7 +96,7 @@
                 <version>${jib-maven-plugin.version}</version>
                 <configuration>
                     <to>
-                        <image>coden256/anxiety-debunker</image>
+                        <image>coden256/anxiety-debunker:${version}</image>
                     </to>
                 </configuration>
                 <executions>
