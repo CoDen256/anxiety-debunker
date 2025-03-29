@@ -7,63 +7,26 @@
     <parent>
         <groupId>io.github.coden256</groupId>
         <artifactId>core-parent</artifactId>
-        <version>1.0</version>
+        <version>1.1</version>
     </parent>
 
     <groupId>coden</groupId>
     <artifactId>anxiety-debunker</artifactId>
-    <version>2.1</version>
+    <version>2.3</version>
 
     <properties>
-        <jib-maven-plugin.version>3.4.5</jib-maven-plugin.version>
+        <mainClass>io.github.coden256.anxiety.debunker.MainKt</mainClass>
     </properties>
 
     <build>
-        <sourceDirectory>src/main/kotlin</sourceDirectory>
-        <testSourceDirectory>src/test/kotlin</testSourceDirectory>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.6</version>
-                <executions>
-                    <execution>
-                        <id>make-assembly</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                        <configuration>
-                            <archiveBaseDirectory>${project.basedir}</archiveBaseDirectory>
-                            <archive>
-                                <manifest>
-                                    <mainClass>io.github.coden256.anxiety.debunker.MainKt</mainClass>
-                                </manifest>
-                            </archive>
-                            <descriptorRefs>
-                                <descriptorRef>jar-with-dependencies</descriptorRef>
-                            </descriptorRefs>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <groupId>com.google.cloud.tools</groupId>
                 <artifactId>jib-maven-plugin</artifactId>
-                <version>${jib-maven-plugin.version}</version>
-                <configuration>
-                    <to>
-                        <image>coden256/anxiety-debunker:${version}</image>
-                    </to>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>build</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
