@@ -3,23 +3,23 @@ package io.github.coden256.anxiety.debunker.core.impl
 import io.github.coden256.anxiety.debunker.core.api.*
 import io.github.coden256.anxiety.debunker.core.persistance.*
 import io.github.coden256.anxiety.debunker.core.persistance.ChanceAssessment
-import io.github.coden256.utils.logResult
+import io.github.coden256.utils.log
 import org.apache.logging.log4j.kotlin.Logging
 
 class DefaultAnxietyAnalyser
     (
     private val anxietyRepository: AnxietyRepository,
-) : io.github.coden256.anxiety.debunker.core.api.AnxietyAnalyser, Logging {
-    override fun anxiety(request: io.github.coden256.anxiety.debunker.core.api.GetAnxietyRequest): Result<io.github.coden256.anxiety.debunker.core.api.AnxietyEntityResponse> {
+) : AnxietyAnalyser, Logging {
+    override fun anxiety(request: GetAnxietyRequest): Result<AnxietyEntityResponse> {
         logger.info("Requesting anxiety ${request.id}...")
 
         return anxietyRepository
             .getAnxietyById(request.id)
             .map { mapAnxietyToEntityResponse(it) }
-            .logResult(logger){ "Got anxiety ${it.id}..."}
+            .log(logger){ "Got anxiety ${it.id}..."}
     }
 
-    override fun anxieties(request: io.github.coden256.anxiety.debunker.core.api.ListAnxietiesRequest): Result<io.github.coden256.anxiety.debunker.core.api.AnxietyListResponse> {
+    override fun anxieties(request: ListAnxietiesRequest): Result<AnxietyListResponse> {
         logger.info("Requesting all anxieties...")
 
         return anxietyRepository
@@ -29,12 +29,12 @@ class DefaultAnxietyAnalyser
                 .filter { anxiety -> request.chances.invoke(anxiety.latestChanceAssessment())  }
                 .filter { anxiety -> request.resolutions.invoke(anxiety.resolution) }
             }
-            .map { io.github.coden256.anxiety.debunker.core.api.AnxietyListResponse(it) }
-            .logResult(logger){ "Got all anxieties"}
+            .map { AnxietyListResponse(it) }
+            .log(logger){ "Got all anxieties"}
     }
 
-    private fun mapAnxietyToEntityResponse(anxiety: Anxiety): io.github.coden256.anxiety.debunker.core.api.AnxietyEntityResponse {
-        return io.github.coden256.anxiety.debunker.core.api.AnxietyEntityResponse(
+    private fun mapAnxietyToEntityResponse(anxiety: Anxiety): AnxietyEntityResponse {
+        return AnxietyEntityResponse(
             anxiety.id,
             anxiety.description,
             anxiety.created,
@@ -44,32 +44,32 @@ class DefaultAnxietyAnalyser
         )
     }
 
-    private fun mapResolution(resolution: Resolution?): io.github.coden256.anxiety.debunker.core.api.AnxietyResolutionResponse {
+    private fun mapResolution(resolution: Resolution?): AnxietyResolutionResponse {
         return when (resolution?.fulfilled) {
-            true -> io.github.coden256.anxiety.debunker.core.api.AnxietyResolutionResponse(
-                io.github.coden256.anxiety.debunker.core.api.AnxietyResolutionType.FULFILLED,
+            true -> AnxietyResolutionResponse(
+                AnxietyResolutionType.FULFILLED,
                 resolution.created
             )
-            false -> io.github.coden256.anxiety.debunker.core.api.AnxietyResolutionResponse(
-                io.github.coden256.anxiety.debunker.core.api.AnxietyResolutionType.UNFULFILLED,
+            false -> AnxietyResolutionResponse(
+                AnxietyResolutionType.UNFULFILLED,
                 resolution.created
             )
-            else -> io.github.coden256.anxiety.debunker.core.api.AnxietyResolutionResponse(
-                io.github.coden256.anxiety.debunker.core.api.AnxietyResolutionType.UNRESOLVED,
+            else -> AnxietyResolutionResponse(
+                AnxietyResolutionType.UNRESOLVED,
                 resolution?.created
             )
         }
     }
 
-    private fun mapChanceAssessment(chance: ChanceAssessment): io.github.coden256.anxiety.debunker.core.api.AnxietyChanceAssessmentResponse {
-        return io.github.coden256.anxiety.debunker.core.api.AnxietyChanceAssessmentResponse(
+    private fun mapChanceAssessment(chance: ChanceAssessment): AnxietyChanceAssessmentResponse {
+        return AnxietyChanceAssessmentResponse(
             chance.chance.level,
             chance.created
         )
     }
 
-    private fun mapDetail(detail: AnxietyDetail): io.github.coden256.anxiety.debunker.core.api.AnxietyDetailResponse {
-        return io.github.coden256.anxiety.debunker.core.api.AnxietyDetailResponse(
+    private fun mapDetail(detail: AnxietyDetail): AnxietyDetailResponse {
+        return AnxietyDetailResponse(
             detail.trigger,
             detail.bodyResponse,
             detail.anxietyResponse,

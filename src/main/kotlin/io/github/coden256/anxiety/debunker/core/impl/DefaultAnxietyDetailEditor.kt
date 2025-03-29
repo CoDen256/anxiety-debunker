@@ -3,7 +3,7 @@ package io.github.coden256.anxiety.debunker.core.impl
 import io.github.coden256.anxiety.debunker.core.api.*
 import io.github.coden256.anxiety.debunker.core.persistance.AnxietyDetail
 import io.github.coden256.anxiety.debunker.core.persistance.AnxietyRepository
-import io.github.coden256.utils.logResult
+import io.github.coden256.utils.log
 import org.apache.logging.log4j.kotlin.Logging
 
 class DefaultAnxietyDetailEditor(
@@ -16,7 +16,7 @@ class DefaultAnxietyDetailEditor(
         return repository
             .saveDetail(AnxietyDetail(request.anxietyId, request.trigger, request.bodyResponse, request.anxietyResponse, request.alternativeThoughts))
             .map { NewDetailResponse(it.anxietyId, it.trigger, it.bodyResponse, it.anxietyResponse, request.alternativeThoughts) }
-            .logResult(logger){ "Added details to ${it.anxietyId}"}
+            .log(logger){ "Added details to ${it.anxietyId}"}
     }
 
     override fun update(request: UpdateDetailRequest): Result<UpdateDetailResponse> {
@@ -25,7 +25,7 @@ class DefaultAnxietyDetailEditor(
         return repository
             .updateDetail(AnxietyDetail(request.anxietyId, request.trigger, request.bodyResponse, request.anxietyResponse, request.alternativeThoughts))
             .map { UpdateDetailResponse(it.anxietyId, it.trigger, it.bodyResponse, it.anxietyResponse, it.alternativeThoughts) }
-            .logResult(logger){ "Updated anxiety details(${it.anxietyId})"}
+            .log(logger){ "Updated anxiety details(${it.anxietyId})"}
     }
 
     override fun clear(request: ClearDetailsRequest): Result<ClearDetailsResponse> {
@@ -34,7 +34,7 @@ class DefaultAnxietyDetailEditor(
         return repository
             .clearDetails()
             .map { ClearDetailsResponse(it) }
-            .logResult(logger){ "Cleared anxiety details"}
+            .log(logger){ "Cleared anxiety details"}
     }
 
     override fun remove(request: DeleteDetailRequest): Result<DeleteDetailResponse> {
@@ -43,8 +43,6 @@ class DefaultAnxietyDetailEditor(
         return repository
             .deleteDetailByAnxietyId(request.anxietyId)
             .map { DeleteDetailResponse(it.anxietyId) }
-            .logResult(logger){ "Deleted details for ${it.anxietyId}"}
+            .log(logger){ "Deleted details for ${it.anxietyId}"}
     }
-
-
 }

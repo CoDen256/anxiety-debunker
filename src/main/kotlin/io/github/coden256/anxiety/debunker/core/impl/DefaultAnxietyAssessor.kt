@@ -5,7 +5,7 @@ import io.github.coden256.anxiety.debunker.core.persistance.AnxietyRepository
 import io.github.coden256.anxiety.debunker.core.persistance.Chance.Companion.chance
 import io.github.coden256.anxiety.debunker.core.persistance.ChanceAssessment
 import io.github.coden256.utils.flatMap
-import io.github.coden256.utils.logResult
+import io.github.coden256.utils.log
 import org.apache.logging.log4j.kotlin.Logging
 
 class DefaultAnxietyAssessor(private val repository: AnxietyRepository): AnxietyAssessor, Logging {
@@ -17,7 +17,7 @@ class DefaultAnxietyAssessor(private val repository: AnxietyRepository): Anxiety
             .map { id -> ChanceAssessment(request.anxietyId, request.chance.level.chance(), id) }
             .flatMap { repository.saveChanceAssessment(it) }
             .map { NewChanceAssessmentResponse(it.id, it.anxietyId, it.chance.level) }
-            .logResult(logger){"Added chance (${it.id}) of ${it.chance}] for ${it.anxietyId}"}
+            .log(logger){"Added chance (${it.id}) of ${it.chance}] for ${it.anxietyId}"}
     }
 
     override fun remove(request: DeleteChanceAssessmentRequest): Result<DeleteChanceAssessmentResponse> {
@@ -26,7 +26,7 @@ class DefaultAnxietyAssessor(private val repository: AnxietyRepository): Anxiety
         return repository
             .deleteChanceAssessmentById(request.id)
             .map { DeleteChanceAssessmentResponse(it.id) }
-            .logResult(logger){"Deleted chance ${it.id}"}
+            .log(logger){"Deleted chance ${it.id}"}
     }
 
     override fun clear(request: ClearChanceAssessmentsRequest): Result<ClearChanceAssessmentsResponse> {
@@ -35,6 +35,6 @@ class DefaultAnxietyAssessor(private val repository: AnxietyRepository): Anxiety
         return repository
             .clearChanceAssessments()
             .map { ClearChanceAssessmentsResponse(it) }
-            .logResult(logger){"Cleared chances"}
+            .log(logger){"Cleared chances"}
     }
 }

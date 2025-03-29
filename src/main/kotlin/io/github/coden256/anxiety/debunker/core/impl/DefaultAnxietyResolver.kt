@@ -3,7 +3,7 @@ package io.github.coden256.anxiety.debunker.core.impl
 import io.github.coden256.anxiety.debunker.core.api.*
 import io.github.coden256.anxiety.debunker.core.persistance.AnxietyRepository
 import io.github.coden256.anxiety.debunker.core.persistance.Resolution
-import io.github.coden256.utils.logResult
+import io.github.coden256.utils.log
 import org.apache.logging.log4j.kotlin.Logging
 
 class DefaultAnxietyResolver(
@@ -15,7 +15,7 @@ class DefaultAnxietyResolver(
         return repository
             .saveResolution(Resolution(request.anxietyId, request.fulfilled))
             .map { ResolveAnxietyResponse(it.anxietyId, it.fulfilled, it.created) }
-            .logResult(logger){ "Resolved ${it.anxietyId}"}
+            .log(logger){ "Resolved ${it.anxietyId}"}
     }
 
     override fun unresolve(request: UnresolveAnxietyRequest): Result<UnresolveAnxietyResponse> {
@@ -24,7 +24,7 @@ class DefaultAnxietyResolver(
         return repository
             .deleteResolutionByAnxietyId(request.anxietyId)
             .map { UnresolveAnxietyResponse(it.anxietyId) }
-            .logResult(logger){ "Unresolved ${it.anxietyId}"}
+            .log(logger){ "Unresolved ${it.anxietyId}"}
     }
 
     override fun update(request: UpdateResolutionRequest): Result<UpdateResolutionResponse> {
@@ -33,7 +33,7 @@ class DefaultAnxietyResolver(
         return repository
             .updateResolution(Resolution(request.anxietyId, request.fulfilled))
             .map { UpdateResolutionResponse(it.anxietyId, it.fulfilled, it.created) }
-            .logResult(logger){ "Updated ${request.anxietyId}"}
+            .log(logger){ "Updated ${request.anxietyId}"}
     }
 
     override fun clear(request: ClearResolutionsRequest): Result<ClearResolutionsResponse> {
@@ -42,6 +42,6 @@ class DefaultAnxietyResolver(
         return repository
             .clearResolutions()
             .map { ClearResolutionsResponse(it) }
-            .logResult(logger){ "Cleared resolutions"}
+            .log(logger){ "Cleared resolutions"}
     }
 }
