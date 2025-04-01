@@ -50,12 +50,12 @@
 
     <build>
         <plugins>
-            <!-- Compile to executable jar, with all dependencies  -->
+            <!-- Compile to executable jar, with all dependencies (package)  -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
             </plugin>
-            <!-- Build and publish docker image  -->
+            <!-- Build and publish docker image (install)  -->
             <plugin>
                 <groupId>com.google.cloud.tools</groupId>
                 <artifactId>jib-maven-plugin</artifactId>
