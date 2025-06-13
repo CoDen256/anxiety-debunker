@@ -40,3 +40,4 @@ build/
 ### VS Code ###
 .vscode/
 /backup.json
+/application_.yml
